@@ -1,0 +1,782 @@
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useAuth } from './AuthContext';
+import { supabase } from '../config/supabase';
+
+const ContentContext = createContext({});
+
+export const useContent = () => {
+  const context = useContext(ContentContext);
+  if (!context) {
+    throw new Error('useContent must be used within a ContentProvider');
+  }
+  return context;
+};
+
+export const ContentProvider = ({ children }) => {
+  const { user, currentViewOrgId, isAdmin, canSwitchOrgs } = useAuth();
+
+  // Categories and items state
+  const [libraryCategories, setLibraryCategories] = useState([]);
+  const [trainingCategories, setTrainingCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // User's downloaded content
+  const [userDownloads, setUserDownloads] = useState(new Set());
+
+  // Track if initial load is done
+  const [initialLoaded, setInitialLoaded] = useState(false);
+
+  // Load content when org is available (wait for org to be set)
+  useEffect(() => {
+    // Only load once we have an org (or user is admin who might not have one)
+    if (currentViewOrgId && !initialLoaded) {
+      console.log('[ContentContext] Initial load with org:', currentViewOrgId);
+      loadAllContent();
+    }
+  }, [currentViewOrgId, initialLoaded]);
+
+  // Reload content when organization view changes (after initial load)
+  useEffect(() => {
+    if (initialLoaded && currentViewOrgId) {
+      console.log('[ContentContext] Org changed, reloading:', currentViewOrgId);
+      loadAllContent(true); // Force refresh when org changes
+    }
+  }, [currentViewOrgId]);
+
+  // Computed loading - only true if actually loading AND no data yet
+  const isLoading = loading && libraryCategories.length === 0 && trainingCategories.length === 0;
+
+  // Load user downloads when user changes
+  useEffect(() => {
+    if (user?.id) {
+      loadUserDownloads();
+    } else {
+      setUserDownloads(new Set());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  // Load all categories and their content
+  const loadAllContent = async (forceRefresh = false) => {
+    console.log('[ContentContext] loadAllContent called', { forceRefresh, initialLoaded, currentViewOrgId });
+
+    // Don't load if no org is set - wait for it
+    if (!currentViewOrgId) {
+      console.log('[ContentContext] Skipping - no org set yet');
+      return;
+    }
+
+    // Skip if already loaded (unless forcing refresh)
+    if (initialLoaded && !forceRefresh) {
+      console.log('[ContentContext] Skipping - already loaded');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log('[ContentContext] Loading content for org:', currentViewOrgId);
+
+      // Build queries - filter by org if user has one
+      // content_item_assignments links content to org+category
+
+      // Load categories, items, junction table, and org assignments in parallel
+      const queries = [
+        supabase
+          .from('content_categories')
+          .select('*')
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true }),
+        supabase
+          .from('content_items')
+          .select('*')
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true }),
+        supabase
+          .from('content_item_categories')
+          .select('*')
+          .order('sort_order', { ascending: true })
+      ];
+
+      // If we have an org view, also load org-specific assignments
+      if (currentViewOrgId) {
+        queries.push(
+          supabase
+            .from('content_item_assignments')
+            .select('*')
+            .eq('organization_id', currentViewOrgId)
+            .order('sort_order', { ascending: true })
+        );
+      }
+
+      const results = await Promise.all(queries);
+      const [categoriesResult, itemsResult, junctionResult] = results;
+      const orgAssignmentsResult = results[3]; // May be undefined if no org
+
+      console.log('[ContentContext] Query results:', {
+        categories: categoriesResult.data?.length || 0,
+        items: itemsResult.data?.length || 0,
+        junction: junctionResult.data?.length || 0,
+        orgAssignments: orgAssignmentsResult?.data?.length || 0,
+        errors: {
+          categories: categoriesResult.error,
+          items: itemsResult.error,
+          junction: junctionResult.error,
+          orgAssignments: orgAssignmentsResult?.error
+        }
+      });
+
+      if (categoriesResult.error) {
+        console.error('Error loading categories:', categoriesResult.error);
+        return;
+      }
+
+      if (itemsResult.error) {
+        console.error('Error loading content items:', itemsResult.error);
+        return;
+      }
+
+      const categoriesData = categoriesResult.data;
+      const itemsData = itemsResult.data;
+      const junctionData = junctionResult.data || [];
+      const orgAssignmentsData = orgAssignmentsResult?.data || [];
+
+      // Create a map of items by ID for quick lookup
+      const itemsById = (itemsData || []).reduce((acc, item) => {
+        acc[item.id] = item;
+        return acc;
+      }, {});
+
+      // If we have org assignments, use those to filter content
+      // Otherwise fall back to the original junction table (for backward compatibility)
+      const itemsByCategory = {};
+
+      // If org-filtered, use content_item_assignments
+      if (currentViewOrgId && orgAssignmentsData.length > 0) {
+        // Use org-specific assignments
+        orgAssignmentsData.forEach(assignment => {
+          if (!itemsByCategory[assignment.category_id]) {
+            itemsByCategory[assignment.category_id] = [];
+          }
+          const item = itemsById[assignment.content_item_id];
+          if (item) {
+            itemsByCategory[assignment.category_id].push({
+              ...item,
+              _junctionSortOrder: assignment.sort_order,
+              _organizationId: assignment.organization_id
+            });
+          }
+        });
+      } else {
+        // Fallback: Use original content_item_categories junction (no org filtering)
+        // First, process junction table entries (new multi-category system)
+        junctionData.forEach(junction => {
+          if (!itemsByCategory[junction.category_id]) {
+            itemsByCategory[junction.category_id] = [];
+          }
+          const item = itemsById[junction.content_id];
+          if (item) {
+            // Add junction sort_order to item for this category
+            itemsByCategory[junction.category_id].push({
+              ...item,
+              _junctionSortOrder: junction.sort_order
+            });
+          }
+        });
+
+        // Fallback: Also include items with direct category_id (backward compatibility)
+        (itemsData || []).forEach(item => {
+          if (item.category_id) {
+            if (!itemsByCategory[item.category_id]) {
+              itemsByCategory[item.category_id] = [];
+            }
+            // Only add if not already in this category via junction
+            const alreadyInCategory = itemsByCategory[item.category_id].some(i => i.id === item.id);
+            if (!alreadyInCategory) {
+              itemsByCategory[item.category_id].push(item);
+            }
+          }
+        });
+      }
+
+      // Sort items within each category
+      Object.keys(itemsByCategory).forEach(categoryId => {
+        itemsByCategory[categoryId].sort((a, b) => {
+          const orderA = a._junctionSortOrder ?? a.sort_order ?? 0;
+          const orderB = b._junctionSortOrder ?? b.sort_order ?? 0;
+          return orderA - orderB;
+        });
+      });
+
+      // Separate library and training categories with their items
+      // Only include categories that have items for the current org
+      const library = [];
+      const training = [];
+
+      (categoriesData || []).forEach(category => {
+        const items = itemsByCategory[category.id] || [];
+
+        // Skip categories with no items for this org
+        if (items.length === 0) {
+          return;
+        }
+
+        const categoryWithItems = {
+          ...category,
+          items: items,
+        };
+
+        if (category.type === 'library') {
+          library.push(categoryWithItems);
+        } else if (category.type === 'training') {
+          training.push(categoryWithItems);
+        }
+      });
+
+      console.log('[ContentContext] Filtered categories:', {
+        library: library.length,
+        training: training.length,
+        orgId: currentViewOrgId
+      });
+
+      setLibraryCategories(library);
+      setTrainingCategories(training);
+      setInitialLoaded(true);
+    } catch (err) {
+      console.error('Error loading content:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load user's downloads
+  const loadUserDownloads = async () => {
+    if (!user?.id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('content_downloads')
+        .select('content_id')
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error loading downloads:', error);
+        return;
+      }
+
+      setUserDownloads(new Set((data || []).map(d => d.content_id)));
+    } catch (err) {
+      console.error('Error loading downloads:', err);
+    }
+  };
+
+  // Track a download
+  const trackDownload = async (contentId) => {
+    if (!user?.id) return;
+
+    // Optimistic update
+    setUserDownloads(prev => new Set([...prev, contentId]));
+
+    try {
+      const { error } = await supabase
+        .from('content_downloads')
+        .upsert({
+          content_id: contentId,
+          user_id: user.id,
+          downloaded_at: new Date().toISOString(),
+        }, {
+          onConflict: 'content_id,user_id',
+        });
+
+      if (error) {
+        console.error('Error tracking download:', error);
+      }
+    } catch (err) {
+      console.error('Error tracking download:', err);
+    }
+  };
+
+  // Remove download tracking
+  const removeDownload = async (contentId) => {
+    if (!user?.id) return;
+
+    // Optimistic update
+    setUserDownloads(prev => {
+      const next = new Set(prev);
+      next.delete(contentId);
+      return next;
+    });
+
+    try {
+      const { error } = await supabase
+        .from('content_downloads')
+        .delete()
+        .eq('content_id', contentId)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error removing download:', error);
+      }
+    } catch (err) {
+      console.error('Error removing download:', err);
+    }
+  };
+
+  // Check if content is downloaded
+  const isDownloaded = (contentId) => userDownloads.has(contentId);
+
+  // === ADMIN FUNCTIONS ===
+
+  // Add a category
+  const addCategory = async (type, title, description = '') => {
+    try {
+      // Get max sort order
+      const categories = type === 'library' ? libraryCategories : trainingCategories;
+      const maxOrder = categories.length > 0
+        ? Math.max(...categories.map(c => c.sort_order || 0))
+        : -1;
+
+      const { data, error } = await supabase
+        .from('content_categories')
+        .insert({
+          type,
+          title,
+          description,
+          sort_order: maxOrder + 1,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Add to local state
+      const newCategory = { ...data, items: [] };
+      if (type === 'library') {
+        setLibraryCategories(prev => [...prev, newCategory]);
+      } else {
+        setTrainingCategories(prev => [...prev, newCategory]);
+      }
+
+      return data;
+    } catch (err) {
+      console.error('Error adding category:', err);
+      throw err;
+    }
+  };
+
+  // Update a category
+  const updateCategory = async (categoryId, updates) => {
+    try {
+      const { error } = await supabase
+        .from('content_categories')
+        .update(updates)
+        .eq('id', categoryId);
+
+      if (error) throw error;
+
+      // Update local state
+      const updateState = (prev) => prev.map(c =>
+        c.id === categoryId ? { ...c, ...updates } : c
+      );
+
+      setLibraryCategories(updateState);
+      setTrainingCategories(updateState);
+    } catch (err) {
+      console.error('Error updating category:', err);
+      throw err;
+    }
+  };
+
+  // Delete a category
+  const deleteCategory = async (categoryId) => {
+    try {
+      const { error } = await supabase
+        .from('content_categories')
+        .delete()
+        .eq('id', categoryId);
+
+      if (error) throw error;
+
+      // Remove from local state
+      setLibraryCategories(prev => prev.filter(c => c.id !== categoryId));
+      setTrainingCategories(prev => prev.filter(c => c.id !== categoryId));
+    } catch (err) {
+      console.error('Error deleting category:', err);
+      throw err;
+    }
+  };
+
+  // Reorder categories
+  const reorderCategories = async (type, orderedIds) => {
+    try {
+      // Update local state first (optimistic)
+      const updateState = (prev) => {
+        const reordered = orderedIds.map((id, index) => {
+          const cat = prev.find(c => c.id === id);
+          return cat ? { ...cat, sort_order: index } : null;
+        }).filter(Boolean);
+        return reordered;
+      };
+
+      if (type === 'library') {
+        setLibraryCategories(updateState);
+      } else {
+        setTrainingCategories(updateState);
+      }
+
+      // Update in database
+      const updates = orderedIds.map((id, index) => ({
+        id,
+        sort_order: index,
+      }));
+
+      for (const update of updates) {
+        await supabase
+          .from('content_categories')
+          .update({ sort_order: update.sort_order })
+          .eq('id', update.id);
+      }
+    } catch (err) {
+      console.error('Error reordering categories:', err);
+      // Reload on error
+      loadAllContent();
+    }
+  };
+
+  // Add a content item to a single category
+  const addContentItem = async (categoryId, itemData) => {
+    try {
+      // Get the category to determine type
+      const allCategories = [...libraryCategories, ...trainingCategories];
+      const category = allCategories.find(c => c.id === categoryId);
+      if (!category) throw new Error('Category not found');
+
+      // Get max sort order for this category
+      const maxOrder = category.items.length > 0
+        ? Math.max(...category.items.map(i => i.sort_order || 0))
+        : -1;
+
+      const { data, error } = await supabase
+        .from('content_items')
+        .insert({
+          category_id: categoryId,
+          title: itemData.title,
+          description: itemData.description || '',
+          thumbnail_url: itemData.thumbnail_url || null,
+          file_url: itemData.file_url || null,
+          file_name: itemData.file_name || null,
+          external_link: itemData.external_link || null,
+          external_link_label: itemData.external_link_label || null,
+          quiz_link: itemData.quiz_link || null,
+          quiz_link_label: itemData.quiz_link_label || null,
+          is_downloadable: itemData.is_downloadable !== false,
+          use_company_logo: itemData.use_company_logo || false,
+          sort_order: maxOrder + 1,
+          created_by: user?.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Also insert into junction table for the new many-to-many system
+      await supabase
+        .from('content_item_categories')
+        .insert({
+          content_id: data.id,
+          category_id: categoryId,
+          sort_order: maxOrder + 1,
+        });
+
+      // Add to local state
+      const updateState = (prev) => prev.map(c => {
+        if (c.id === categoryId) {
+          return { ...c, items: [...c.items, data] };
+        }
+        return c;
+      });
+
+      if (category.type === 'library') {
+        setLibraryCategories(updateState);
+      } else {
+        setTrainingCategories(updateState);
+      }
+
+      return data;
+    } catch (err) {
+      console.error('Error adding content item:', err);
+      throw err;
+    }
+  };
+
+  // Add a content item to multiple categories
+  const addContentToCategories = async (itemData, categoryIds) => {
+    try {
+      console.log('=== addContentToCategories DEBUG ===');
+      console.log('categoryIds received:', categoryIds);
+      console.log('categoryIds length:', categoryIds?.length);
+
+      if (!categoryIds || categoryIds.length === 0) {
+        throw new Error('At least one category must be selected');
+      }
+
+      const allCategories = [...libraryCategories, ...trainingCategories];
+
+      // Insert the content item (without category_id since it goes to multiple)
+      const { data, error } = await supabase
+        .from('content_items')
+        .insert({
+          category_id: null, // Multi-category items don't use direct FK
+          title: itemData.title,
+          description: itemData.description || '',
+          thumbnail_url: itemData.thumbnail_url || null,
+          file_url: itemData.file_url || null,
+          file_name: itemData.file_name || null,
+          external_link: itemData.external_link || null,
+          external_link_label: itemData.external_link_label || null,
+          quiz_link: itemData.quiz_link || null,
+          quiz_link_label: itemData.quiz_link_label || null,
+          is_downloadable: itemData.is_downloadable !== false,
+          use_company_logo: itemData.use_company_logo || false,
+          sort_order: 0,
+          created_by: user?.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Insert junction table entries for each category
+      const junctionInserts = categoryIds.map(categoryId => {
+        const category = allCategories.find(c => c.id === categoryId);
+        const maxOrder = category?.items?.length > 0
+          ? Math.max(...category.items.map(i => i.sort_order || 0))
+          : -1;
+        return {
+          content_id: data.id,
+          category_id: categoryId,
+          sort_order: maxOrder + 1,
+        };
+      });
+
+      console.log('Junction inserts to make:', junctionInserts);
+      console.log('Number of junction entries:', junctionInserts.length);
+
+      const { data: junctionData, error: junctionError } = await supabase
+        .from('content_item_categories')
+        .insert(junctionInserts)
+        .select();
+
+      console.log('Junction insert result:', junctionData);
+
+      if (junctionError) {
+        console.error('Error inserting junction entries:', junctionError);
+        // Still continue - content was created
+      } else {
+        console.log('Successfully inserted', junctionData?.length, 'junction entries');
+      }
+
+      // Update local state - add item to each selected category
+      const updateCategories = (prev) => prev.map(c => {
+        if (categoryIds.includes(c.id)) {
+          return { ...c, items: [...c.items, data] };
+        }
+        return c;
+      });
+
+      setLibraryCategories(updateCategories);
+      setTrainingCategories(updateCategories);
+
+      return data;
+    } catch (err) {
+      console.error('Error adding content to categories:', err);
+      throw err;
+    }
+  };
+
+  // Update a content item
+  const updateContentItem = async (itemId, updates) => {
+    try {
+      const { error } = await supabase
+        .from('content_items')
+        .update(updates)
+        .eq('id', itemId);
+
+      if (error) throw error;
+
+      // Update local state
+      const updateState = (prev) => prev.map(c => ({
+        ...c,
+        items: c.items.map(i => i.id === itemId ? { ...i, ...updates } : i),
+      }));
+
+      setLibraryCategories(updateState);
+      setTrainingCategories(updateState);
+    } catch (err) {
+      console.error('Error updating content item:', err);
+      throw err;
+    }
+  };
+
+  // Delete a content item (removes from ALL categories)
+  const deleteContentItem = async (itemId) => {
+    try {
+      const { error } = await supabase
+        .from('content_items')
+        .delete()
+        .eq('id', itemId);
+
+      if (error) throw error;
+
+      // Remove from local state
+      const updateState = (prev) => prev.map(c => ({
+        ...c,
+        items: c.items.filter(i => i.id !== itemId),
+      }));
+
+      setLibraryCategories(updateState);
+      setTrainingCategories(updateState);
+    } catch (err) {
+      console.error('Error deleting content item:', err);
+      throw err;
+    }
+  };
+
+  // Remove a content item from ONE category only (keeps item in other categories)
+  const removeContentFromCategory = async (itemId, categoryId) => {
+    try {
+      // Delete only the junction entry
+      const { error } = await supabase
+        .from('content_item_categories')
+        .delete()
+        .eq('content_id', itemId)
+        .eq('category_id', categoryId);
+
+      if (error) throw error;
+
+      // Check if item is still in any category
+      const { data: remaining } = await supabase
+        .from('content_item_categories')
+        .select('id')
+        .eq('content_id', itemId);
+
+      // If not in any category anymore, delete the content item too
+      if (!remaining || remaining.length === 0) {
+        await supabase
+          .from('content_items')
+          .delete()
+          .eq('id', itemId);
+      }
+
+      // Update local state - remove from this category only
+      const updateState = (prev) => prev.map(c => {
+        if (c.id === categoryId) {
+          return { ...c, items: c.items.filter(i => i.id !== itemId) };
+        }
+        return c;
+      });
+
+      setLibraryCategories(updateState);
+      setTrainingCategories(updateState);
+    } catch (err) {
+      console.error('Error removing content from category:', err);
+      throw err;
+    }
+  };
+
+  // Reorder content items within a category
+  const reorderContentItems = async (categoryId, orderedIds) => {
+    try {
+      // Update local state first (optimistic)
+      const updateState = (prev) => prev.map(c => {
+        if (c.id === categoryId) {
+          const reorderedItems = orderedIds.map((id, index) => {
+            const item = c.items.find(i => i.id === id);
+            return item ? { ...item, sort_order: index } : null;
+          }).filter(Boolean);
+          return { ...c, items: reorderedItems };
+        }
+        return c;
+      });
+
+      setLibraryCategories(updateState);
+      setTrainingCategories(updateState);
+
+      // Update in database
+      const updates = orderedIds.map((id, index) => ({
+        id,
+        sort_order: index,
+      }));
+
+      for (const update of updates) {
+        await supabase
+          .from('content_items')
+          .update({ sort_order: update.sort_order })
+          .eq('id', update.id);
+      }
+    } catch (err) {
+      console.error('Error reordering items:', err);
+      // Reload on error
+      loadAllContent();
+    }
+  };
+
+  // Get all downloaded items for downloads screen
+  const getDownloadedItems = useCallback(() => {
+    const allItems = [];
+
+    [...libraryCategories, ...trainingCategories].forEach(category => {
+      category.items.forEach(item => {
+        if (userDownloads.has(item.id)) {
+          allItems.push({
+            ...item,
+            categoryTitle: category.title,
+            categoryType: category.type,
+          });
+        }
+      });
+    });
+
+    return allItems;
+  }, [libraryCategories, trainingCategories, userDownloads]);
+
+  // Force refresh content (for pull-to-refresh, etc.)
+  // Memoized to prevent infinite loops in useEffect dependencies
+  const refreshContent = useCallback(() => {
+    loadAllContent(true);
+  }, []);
+
+  const value = {
+    // Data
+    libraryCategories,
+    trainingCategories,
+    loading: isLoading, // Only true when actually loading with no data
+    userDownloads,
+    currentViewOrgId, // Current org being viewed
+
+    // Read functions
+    loadAllContent,
+    refreshContent,
+    isDownloaded,
+    getDownloadedItems,
+
+    // Download tracking
+    trackDownload,
+    removeDownload,
+
+    // Admin: Categories
+    addCategory,
+    updateCategory,
+    deleteCategory,
+    reorderCategories,
+
+    // Admin: Content Items
+    addContentItem,
+    addContentToCategories,
+    updateContentItem,
+    deleteContentItem,
+    removeContentFromCategory, // Remove from ONE category only
+    reorderContentItems,
+  };
+
+  return <ContentContext.Provider value={value}>{children}</ContentContext.Provider>;
+};
