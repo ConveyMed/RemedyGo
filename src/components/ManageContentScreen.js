@@ -753,13 +753,12 @@ const MultiCategoryContentModal = ({ isOpen, onClose, onSave, categories, organi
 // Main Component
 const ManageContentScreen = ({ type, title, backPath }) => {
   const navigate = useNavigate();
-  const { organizations } = useAuth();
   const { libraryCategories, trainingCategories, addCategory, updateCategory, deleteCategory, reorderCategories, reorderContentItems, refreshContent } = useContent();
 
   const categories = type === 'library' ? libraryCategories : trainingCategories;
 
-  // Org toggle state - default to first org
-  const [selectedOrgId, setSelectedOrgId] = useState(null);
+  // All organizations (fetched from DB, not just user's orgs)
+  const [allOrganizations, setAllOrganizations] = useState([]);
 
   // Content and assignments
   const [contentItems, setContentItems] = useState([]);
@@ -768,9 +767,9 @@ const ManageContentScreen = ({ type, title, backPath }) => {
 
   // Modal states
   const [categoryModal, setCategoryModal] = useState({ open: false, category: null });
-  const [contentModal, setContentModal] = useState({ open: false, item: null, categoryId: null });
+  const [contentModal, setContentModal] = useState({ open: false, item: null, categoryId: null, orgId: null });
   const [multiCategoryModal, setMultiCategoryModal] = useState(false);
-  const [expandedCategory, setExpandedCategory] = useState(null);
+  const [expandedCategories, setExpandedCategories] = useState({}); // { [orgId]: categoryId }
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, type: null, id: null, name: '', categoryId: null });
   const [activeId, setActiveId] = useState(null);
 
@@ -779,36 +778,25 @@ const ManageContentScreen = ({ type, title, backPath }) => {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  // Set default org on mount
-  useEffect(() => {
-    if (organizations?.length > 0 && !selectedOrgId) {
-      setSelectedOrgId(organizations[0].id);
-    }
-  }, [organizations, selectedOrgId]);
-
-  // Load content items and assignments
+  // Load all data
   const fetchContent = useCallback(async () => {
     try {
       setLoading(true);
 
-      // Fetch all content items
-      const { data: items, error: itemsError } = await supabase
-        .from('content_items')
-        .select('*')
-        .eq('is_active', true)
-        .order('sort_order');
+      // Fetch ALL organizations, content items, and assignments in parallel
+      const [orgsResult, itemsResult, assignmentsResult] = await Promise.all([
+        supabase.from('organizations').select('*').order('code'),
+        supabase.from('content_items').select('*').eq('is_active', true).order('sort_order'),
+        supabase.from('content_item_assignments').select('*')
+      ]);
 
-      if (itemsError) throw itemsError;
+      if (orgsResult.error) throw orgsResult.error;
+      if (itemsResult.error) throw itemsResult.error;
+      if (assignmentsResult.error) throw assignmentsResult.error;
 
-      // Fetch all assignments
-      const { data: assignments, error: assignmentsError } = await supabase
-        .from('content_item_assignments')
-        .select('*');
-
-      if (assignmentsError) throw assignmentsError;
-
-      setContentItems(items || []);
-      setOrgAssignments(assignments || []);
+      setAllOrganizations(orgsResult.data || []);
+      setContentItems(itemsResult.data || []);
+      setOrgAssignments(assignmentsResult.data || []);
     } catch (error) {
       console.error('Error fetching content:', error);
     } finally {
@@ -1008,6 +996,29 @@ const ManageContentScreen = ({ type, title, backPath }) => {
 
   const activeCategory = activeId ? categoriesWithItems.find(c => c.id === activeId) : null;
 
+  // Get item count for a category within a specific org
+  const getOrgCategoryItemCount = (orgId, categoryId) => {
+    return orgAssignments.filter(a =>
+      a.organization_id === orgId && a.category_id === categoryId
+    ).length;
+  };
+
+  // Get items for a category within a specific org
+  const getOrgCategoryItems = (orgId, categoryId) => {
+    const assignmentIds = orgAssignments
+      .filter(a => a.organization_id === orgId && a.category_id === categoryId)
+      .map(a => a.content_item_id);
+    return contentItems.filter(item => assignmentIds.includes(item.id));
+  };
+
+  // Toggle expanded category per org
+  const toggleExpanded = (orgId, categoryId) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [orgId]: prev[orgId] === categoryId ? null : categoryId
+    }));
+  };
+
   if (loading && contentItems.length === 0) {
     return (
       <div style={styles.container}>
@@ -1021,92 +1032,126 @@ const ManageContentScreen = ({ type, title, backPath }) => {
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <div style={styles.headerInner}>
+        <div style={styles.headerInnerWide}>
           <button style={styles.backBtn} onClick={() => navigate(backPath)}>
             <BackIcon />
           </button>
           <h1 style={styles.headerTitle}>{title}</h1>
           <div style={{ width: 40 }} />
         </div>
-        <div style={styles.headerBorder} />
+        <div style={styles.headerBorderWide} />
       </header>
 
-      <div style={styles.contentContainer}>
-        <div style={styles.content}>
-          {/* Org Toggle */}
-          {organizations?.length > 1 && (
-            <div style={styles.orgToggleContainer}>
-              {organizations.map(org => (
-                <button
-                  key={org.id}
-                  style={{
-                    ...styles.orgToggleBtn,
-                    backgroundColor: selectedOrgId === org.id ? (org.code === 'AM' ? '#dbeafe' : '#fce7f3') : '#f8fafc',
-                    color: selectedOrgId === org.id ? (org.code === 'AM' ? '#1d4ed8' : '#be185d') : '#64748b',
-                    fontWeight: selectedOrgId === org.id ? '600' : '400',
-                  }}
-                  onClick={() => setSelectedOrgId(org.id)}
-                >
-                  {org.code}
-                </button>
-              ))}
-            </div>
-          )}
-
+      <div style={styles.contentContainerWide}>
+        {/* Top buttons */}
+        <div style={styles.topButtons}>
           <button style={styles.addCategoryBtn} onClick={() => setCategoryModal({ open: true, category: null })}>
             <PlusIcon />
             <span>Add Category</span>
           </button>
-
           <button style={styles.addMultiContentBtn} onClick={() => setMultiCategoryModal(true)}>
             <PlusIcon />
             <span>Add to Multiple Orgs/Categories</span>
           </button>
-
-          {categoriesWithItems.length > 0 ? (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-              <SortableContext items={categoriesWithItems.map(c => c.id)} strategy={verticalListSortingStrategy}>
-                <div style={styles.categoriesList}>
-                  {categoriesWithItems.map((category) => (
-                    <SortableCategoryItem
-                      key={category.id}
-                      category={category}
-                      isExpanded={expandedCategory === category.id}
-                      onToggle={() => setExpandedCategory(expandedCategory === category.id ? null : category.id)}
-                      onEdit={() => setCategoryModal({ open: true, category })}
-                      onDelete={() => setDeleteConfirm({ open: true, type: 'category', id: category.id, name: category.title })}
-                      onAddContent={() => setContentModal({ open: true, item: null, categoryId: category.id })}
-                      onEditContent={(item) => setContentModal({ open: true, item, categoryId: category.id })}
-                      onDeleteContent={(item) => setDeleteConfirm({ open: true, type: 'content', id: item.id, name: item.title, categoryId: category.id })}
-                      onReorderItems={reorderContentItems}
-                      selectedOrgId={selectedOrgId}
-                      orgAssignments={orgAssignments}
-                    />
-                  ))}
-                </div>
-              </SortableContext>
-              <DragOverlay>
-                {activeCategory ? (
-                  <div style={{ ...styles.categoryCard, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', transform: 'scale(1.02)' }}>
-                    <div style={styles.categoryHeader}>
-                      <div style={styles.dragHandle}><GripIcon /></div>
-                      <div style={styles.categoryInfo}>
-                        <h3 style={styles.categoryName}>{activeCategory.title}</h3>
-                        <span style={styles.categoryCount}>{activeCategory.items.length} items</span>
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-              </DragOverlay>
-            </DndContext>
-          ) : (
-            <div style={styles.emptyState}>
-              <p style={styles.emptyText}>No categories yet. Add one to get started!</p>
-            </div>
-          )}
-
-          <div style={{ height: '40px' }} />
         </div>
+
+        {/* Two-column org view */}
+        <div style={styles.orgColumnsContainer}>
+          {allOrganizations.map(org => (
+            <div key={org.id} style={styles.orgColumn}>
+              {/* Org header */}
+              <div style={{
+                ...styles.orgColumnHeader,
+                backgroundColor: org.code === 'AM' ? '#dbeafe' : '#fce7f3',
+                color: org.code === 'AM' ? '#1d4ed8' : '#be185d',
+              }}>
+                <span style={styles.orgColumnTitle}>{org.name}</span>
+                <span style={styles.orgColumnCode}>({org.code})</span>
+              </div>
+
+              {/* Categories for this org */}
+              <div style={styles.orgColumnContent}>
+                {categories.length > 0 ? (
+                  categories.map(category => {
+                    const itemCount = getOrgCategoryItemCount(org.id, category.id);
+                    const isExpanded = expandedCategories[org.id] === category.id;
+                    const items = isExpanded ? getOrgCategoryItems(org.id, category.id) : [];
+
+                    return (
+                      <div key={category.id} style={styles.categoryCard}>
+                        <div
+                          style={styles.categoryHeaderCompact}
+                          onClick={() => toggleExpanded(org.id, category.id)}
+                        >
+                          <div style={styles.categoryInfo}>
+                            <h3 style={styles.categoryName}>{category.title}</h3>
+                            <span style={styles.categoryCount}>{itemCount} item{itemCount !== 1 ? 's' : ''}</span>
+                          </div>
+                          <div style={{ ...styles.expandIcon, transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                            <ChevronDownIcon />
+                          </div>
+                        </div>
+
+                        {isExpanded && (
+                          <div style={styles.categoryContent}>
+                            <button
+                              style={styles.addContentBtnSmall}
+                              onClick={() => setContentModal({ open: true, item: null, categoryId: category.id, orgId: org.id })}
+                            >
+                              <PlusIcon />
+                              <span>Add</span>
+                            </button>
+
+                            {items.length > 0 ? (
+                              <div style={styles.itemsList}>
+                                {items.map(item => (
+                                  <div key={item.id} style={styles.itemCardCompact}>
+                                    <div style={styles.itemThumbnailSmall}>
+                                      {item.thumbnail_url ? (
+                                        <img src={item.thumbnail_url} alt="" style={styles.itemThumbImage} />
+                                      ) : (
+                                        <div style={styles.itemThumbPlaceholder}>
+                                          <ImageIcon />
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div style={styles.itemInfo}>
+                                      <p style={styles.itemTitle}>{item.title}</p>
+                                    </div>
+                                    <div style={styles.itemActionsSmall}>
+                                      <button
+                                        style={styles.iconBtnSmall}
+                                        onClick={() => setContentModal({ open: true, item, categoryId: category.id, orgId: org.id })}
+                                      >
+                                        <EditIcon />
+                                      </button>
+                                      <button
+                                        style={styles.iconBtnSmall}
+                                        onClick={() => setDeleteConfirm({ open: true, type: 'content', id: item.id, name: item.title, categoryId: category.id })}
+                                      >
+                                        <TrashIcon />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p style={styles.noItems}>No items</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p style={styles.noCategories}>No categories yet</p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ height: '40px' }} />
       </div>
 
       <CategoryModal
@@ -1119,13 +1164,13 @@ const ManageContentScreen = ({ type, title, backPath }) => {
 
       <ContentItemModal
         isOpen={contentModal.open}
-        onClose={() => setContentModal({ open: false, item: null, categoryId: null })}
+        onClose={() => setContentModal({ open: false, item: null, categoryId: null, orgId: null })}
         onSave={handleSaveContent}
         item={contentModal.item}
         title={contentModal.item ? 'Edit Content' : 'Add Content'}
         type={type}
         categoryId={contentModal.categoryId}
-        selectedOrgId={selectedOrgId}
+        selectedOrgId={contentModal.orgId}
       />
 
       <MultiCategoryContentModal
@@ -1133,7 +1178,7 @@ const ManageContentScreen = ({ type, title, backPath }) => {
         onClose={() => setMultiCategoryModal(false)}
         onSave={handleSaveMultiContent}
         categories={categories}
-        organizations={organizations || []}
+        organizations={allOrganizations}
         type={type}
       />
 
@@ -1166,41 +1211,42 @@ const styles = {
   container: { minHeight: '100%', backgroundColor: 'var(--background-off-white)', display: 'flex', flexDirection: 'column' },
   loadingContainer: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' },
   header: { width: '100%', backgroundColor: '#ffffff', position: 'sticky', top: 0, zIndex: 100 },
-  headerInner: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px 8px 16px', maxWidth: '600px', margin: '0 auto' },
+  headerInnerWide: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px 8px 16px', maxWidth: '900px', margin: '0 auto' },
   headerTitle: { color: 'var(--primary-blue)', fontSize: '20px', fontWeight: '700', margin: 0, textAlign: 'center' },
-  headerBorder: { maxWidth: '600px', margin: '0 auto', height: '2px', backgroundColor: 'rgba(var(--primary-blue-rgb), 0.15)', borderRadius: '1px' },
+  headerBorderWide: { maxWidth: '900px', margin: '0 auto', height: '2px', backgroundColor: 'rgba(var(--primary-blue-rgb), 0.15)', borderRadius: '1px' },
   backBtn: { width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--primary-blue)', borderRadius: '10px' },
-  contentContainer: { flex: 1, display: 'flex', justifyContent: 'center', overflow: 'auto' },
-  content: { width: '100%', maxWidth: '600px', padding: '16px' },
-  orgToggleContainer: { display: 'flex', gap: '8px', marginBottom: '16px', padding: '4px', backgroundColor: '#f1f5f9', borderRadius: '10px' },
-  orgToggleBtn: { flex: 1, padding: '10px 16px', border: 'none', borderRadius: '8px', fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s' },
-  addCategoryBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', padding: '14px', backgroundColor: 'var(--primary-blue)', color: '#ffffff', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: '600', cursor: 'pointer', marginBottom: '12px' },
-  addMultiContentBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', padding: '14px', backgroundColor: '#ffffff', color: 'var(--primary-blue)', border: '2px solid var(--primary-blue)', borderRadius: '12px', fontSize: '15px', fontWeight: '600', cursor: 'pointer', marginBottom: '20px' },
-  categoriesList: { display: 'flex', flexDirection: 'column', gap: '12px' },
-  categoryCard: { backgroundColor: '#ffffff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)' },
-  categoryHeader: { display: 'flex', alignItems: 'center', gap: '12px', padding: '16px' },
-  dragHandle: { color: 'var(--text-light)', cursor: 'grab', padding: '4px', touchAction: 'none' },
-  dragHandleSmall: { color: 'var(--text-light)', cursor: 'grab', padding: '2px', touchAction: 'none' },
-  categoryInfo: { flex: 1, cursor: 'pointer' },
-  categoryName: { fontSize: '16px', fontWeight: '600', color: 'var(--text-dark)', margin: 0 },
-  categoryCount: { fontSize: '13px', color: 'var(--text-muted)' },
-  categoryActions: { display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' },
-  expandIcon: { transition: 'transform 0.2s', cursor: 'pointer', padding: '4px' },
-  iconBtn: { width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-light)', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-muted)' },
-  categoryContent: { padding: '0 16px 16px 16px', borderTop: '1px solid #f1f5f9' },
-  addContentBtn: { display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', backgroundColor: 'var(--bg-light)', color: 'var(--primary-blue)', border: '1px dashed #cbd5e1', borderRadius: '10px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', marginBottom: '12px', marginTop: '12px', width: '100%', justifyContent: 'center' },
-  itemsList: { display: 'flex', flexDirection: 'column', gap: '8px' },
-  itemCard: { display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', backgroundColor: 'var(--background-off-white)', borderRadius: '10px' },
-  itemThumbnail: { width: '48px', height: '48px', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'var(--border-light)', flexShrink: 0 },
+  contentContainerWide: { flex: 1, padding: '16px', maxWidth: '900px', margin: '0 auto', width: '100%', boxSizing: 'border-box' },
+  topButtons: { display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' },
+  addCategoryBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flex: 1, minWidth: '200px', padding: '12px 16px', backgroundColor: 'var(--primary-blue)', color: '#ffffff', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' },
+  addMultiContentBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flex: 1, minWidth: '200px', padding: '12px 16px', backgroundColor: '#ffffff', color: 'var(--primary-blue)', border: '2px solid var(--primary-blue)', borderRadius: '10px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' },
+  // Two-column org layout
+  orgColumnsContainer: { display: 'flex', gap: '16px', flexWrap: 'wrap' },
+  orgColumn: { flex: 1, minWidth: '280px', backgroundColor: '#ffffff', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)' },
+  orgColumnHeader: { padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '8px' },
+  orgColumnTitle: { fontSize: '15px', fontWeight: '600' },
+  orgColumnCode: { fontSize: '13px', opacity: 0.8 },
+  orgColumnContent: { padding: '12px' },
+  noCategories: { color: 'var(--text-muted)', fontSize: '14px', textAlign: 'center', padding: '20px' },
+  // Category card (compact)
+  categoryCard: { backgroundColor: 'var(--background-off-white)', borderRadius: '10px', overflow: 'hidden', marginBottom: '8px' },
+  categoryHeaderCompact: { display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', cursor: 'pointer' },
+  categoryInfo: { flex: 1 },
+  categoryName: { fontSize: '14px', fontWeight: '600', color: 'var(--text-dark)', margin: 0 },
+  categoryCount: { fontSize: '12px', color: 'var(--text-muted)' },
+  expandIcon: { transition: 'transform 0.2s', color: 'var(--text-muted)' },
+  categoryContent: { padding: '0 12px 12px 12px', borderTop: '1px solid #e2e8f0' },
+  addContentBtnSmall: { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', backgroundColor: '#ffffff', color: 'var(--primary-blue)', border: '1px dashed #cbd5e1', borderRadius: '8px', fontSize: '13px', fontWeight: '500', cursor: 'pointer', marginTop: '8px', marginBottom: '8px' },
+  // Item cards (compact)
+  itemsList: { display: 'flex', flexDirection: 'column', gap: '6px' },
+  itemCardCompact: { display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', backgroundColor: '#ffffff', borderRadius: '8px' },
+  itemThumbnailSmall: { width: '36px', height: '36px', borderRadius: '6px', overflow: 'hidden', backgroundColor: 'var(--border-light)', flexShrink: 0 },
   itemThumbImage: { width: '100%', height: '100%', objectFit: 'cover' },
-  itemThumbPlaceholder: { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-light)' },
+  itemThumbPlaceholder: { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-light)', fontSize: '12px' },
   itemInfo: { flex: 1, minWidth: 0 },
-  itemTitle: { fontSize: '14px', fontWeight: '500', color: 'var(--text-dark)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-  itemDesc: { fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-  itemActions: { display: 'flex', gap: '6px' },
-  noItems: { color: 'var(--text-light)', fontSize: '14px', fontStyle: 'italic', textAlign: 'center', padding: '12px' },
-  emptyState: { textAlign: 'center', padding: '40px 20px' },
-  emptyText: { color: 'var(--text-muted)', fontSize: '15px' },
+  itemTitle: { fontSize: '13px', fontWeight: '500', color: 'var(--text-dark)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  itemActionsSmall: { display: 'flex', gap: '4px' },
+  iconBtnSmall: { width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-light)', border: 'none', borderRadius: '6px', cursor: 'pointer', color: 'var(--text-muted)' },
+  noItems: { color: 'var(--text-light)', fontSize: '13px', fontStyle: 'italic', textAlign: 'center', padding: '8px' },
   modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '20px', paddingTop: 'calc(20px + env(safe-area-inset-top, 0px))', paddingBottom: 'calc(100px + env(safe-area-inset-bottom, 0px))' },
   modal: { backgroundColor: '#ffffff', borderRadius: '20px', padding: '24px', maxWidth: '400px', width: '100%', position: 'relative', maxHeight: '100%', overflowY: 'auto', WebkitOverflowScrolling: 'touch' },
   closeBtn: { position: 'absolute', top: '16px', right: '16px', width: '36px', height: '36px', borderRadius: '50%', backgroundColor: 'var(--bg-light)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' },
