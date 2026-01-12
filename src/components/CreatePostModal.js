@@ -292,18 +292,28 @@ const CreatePostModal = () => {
         ? new Date(scheduledAt).toISOString()
         : null;
 
-      // Determine org for post
-      // selectedOrg can be a UUID (specific org) or 'both' (all orgs)
-      const isAllOrgs = selectedOrg === 'both';
-      const organizationId = isAllOrgs ? null : selectedOrg;
-
-      await addPost(content.trim(), uploadedMedia, links, {
-        notifyPush,
-        notifyEmail,
-        scheduledAt: scheduleTime,
-        organizationId,
-        isAllOrgs
-      });
+      // Handle organization posting
+      if (selectedOrg === 'both') {
+        // Create separate posts for each organization (isolated comments per org)
+        for (const org of organizations) {
+          await addPost(content.trim(), uploadedMedia, links, {
+            notifyPush,
+            notifyEmail,
+            scheduledAt: scheduleTime,
+            organizationId: org.id,
+            isAllOrgs: false
+          });
+        }
+      } else {
+        // Single organization post
+        await addPost(content.trim(), uploadedMedia, links, {
+          notifyPush,
+          notifyEmail,
+          scheduledAt: scheduleTime,
+          organizationId: selectedOrg,
+          isAllOrgs: false
+        });
+      }
       setContent('');
       clearAllMedia();
       closeCreateModal();
