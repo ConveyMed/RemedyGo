@@ -2955,6 +2955,7 @@ const styles = {
     lineHeight: '1.5',
     color: '#334155',
     margin: 0,
+    whiteSpace: 'pre-wrap',
   },
   postLinks: {
     display: 'flex',
@@ -3173,6 +3174,7 @@ const styles = {
     color: '#475569',
     margin: 0,
     lineHeight: '1.4',
+    whiteSpace: 'pre-wrap',
   },
   loadMoreButton: {
     padding: '10px',

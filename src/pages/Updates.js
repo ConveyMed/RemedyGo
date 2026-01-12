@@ -520,6 +520,7 @@ const styles = {
     color: 'var(--text-muted)',
     margin: 0,
     lineHeight: '1.5',
+    whiteSpace: 'pre-wrap',
   },
   cardBodyCollapsed: {
     display: '-webkit-box',

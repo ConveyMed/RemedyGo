@@ -678,6 +678,7 @@ const styles = {
     WebkitLineClamp: 3,
     WebkitBoxOrient: 'vertical',
     overflow: 'hidden',
+    whiteSpace: 'pre-wrap',
   },
   linkPreview: {
     fontSize: '13px',
