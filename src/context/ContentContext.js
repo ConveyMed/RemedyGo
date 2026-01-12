@@ -94,19 +94,19 @@ export const ContentProvider = ({ children }) => {
         supabase
           .from('content_item_categories')
           .select('*')
-          .order('sort_order', { ascending: true })
+          .order('sort_order', { ascending: true }),
+        // Always load org assignments - filter by org if viewing specific org
+        currentViewOrgId
+          ? supabase
+              .from('content_item_assignments')
+              .select('*')
+              .eq('organization_id', currentViewOrgId)
+              .order('sort_order', { ascending: true })
+          : supabase
+              .from('content_item_assignments')
+              .select('*')
+              .order('sort_order', { ascending: true })
       ];
-
-      // If we have an org view, also load org-specific assignments
-      if (currentViewOrgId) {
-        queries.push(
-          supabase
-            .from('content_item_assignments')
-            .select('*')
-            .eq('organization_id', currentViewOrgId)
-            .order('sort_order', { ascending: true })
-        );
-      }
 
       const results = await Promise.all(queries);
       const [categoriesResult, itemsResult, junctionResult] = results;
@@ -150,8 +150,8 @@ export const ContentProvider = ({ children }) => {
       // Otherwise fall back to the original junction table (for backward compatibility)
       const itemsByCategory = {};
 
-      // If org-filtered, use content_item_assignments
-      if (currentViewOrgId && orgAssignmentsData.length > 0) {
+      // Use org assignments if available (primary), fall back to junction table
+      if (orgAssignmentsData.length > 0) {
         // Use org-specific assignments
         orgAssignmentsData.forEach(assignment => {
           if (!itemsByCategory[assignment.category_id]) {

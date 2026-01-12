@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useContent } from '../context/ContentContext';
+import { useAuth } from '../context/AuthContext';
 import { supabase } from '../config/supabase';
 import {
   DndContext,
@@ -80,8 +81,8 @@ const CloseIcon = () => (
   </svg>
 );
 
-// Sortable Category Item
-const SortableCategoryItem = ({ category, index, isExpanded, onToggle, onEdit, onDelete, onAddContent, onEditContent, onDeleteContent, onReorderItems }) => {
+// Sortable Category Item - filters items by selected org
+const SortableCategoryItem = ({ category, isExpanded, onToggle, onEdit, onDelete, onAddContent, onEditContent, onDeleteContent, onReorderItems, selectedOrgId, orgAssignments }) => {
   const {
     attributes,
     listeners,
@@ -98,6 +99,15 @@ const SortableCategoryItem = ({ category, index, isExpanded, onToggle, onEdit, o
     zIndex: isDragging ? 1000 : 1,
   };
 
+  // Filter items by selected org using assignments
+  const filteredItems = category.items.filter(item =>
+    orgAssignments.some(a =>
+      a.content_item_id === item.id &&
+      a.organization_id === selectedOrgId &&
+      a.category_id === category.id
+    )
+  );
+
   return (
     <div ref={setNodeRef} style={{ ...styles.categoryCard, ...style }}>
       <div style={styles.categoryHeader}>
@@ -107,7 +117,7 @@ const SortableCategoryItem = ({ category, index, isExpanded, onToggle, onEdit, o
         <div style={styles.categoryInfo} onClick={onToggle}>
           <h3 style={styles.categoryName}>{category.title}</h3>
           <span style={styles.categoryCount}>
-            {category.items.length} item{category.items.length !== 1 ? 's' : ''}
+            {filteredItems.length} item{filteredItems.length !== 1 ? 's' : ''}
           </span>
         </div>
         <div style={styles.categoryActions}>
@@ -130,9 +140,9 @@ const SortableCategoryItem = ({ category, index, isExpanded, onToggle, onEdit, o
             <span>Add Content</span>
           </button>
 
-          {category.items.length > 0 ? (
+          {filteredItems.length > 0 ? (
             <SortableContentList
-              items={category.items}
+              items={filteredItems}
               categoryId={category.id}
               onEditContent={onEditContent}
               onDeleteContent={onDeleteContent}
@@ -303,8 +313,8 @@ const CategoryModal = ({ isOpen, onClose, onSave, category, title }) => {
   );
 };
 
-// Content Item Modal
-const ContentItemModal = ({ isOpen, onClose, onSave, item, title, type }) => {
+// Content Item Modal (single category + current org)
+const ContentItemModal = ({ isOpen, onClose, onSave, item, title, type, categoryId, selectedOrgId }) => {
   const modalRef = React.useRef(null);
   const scrollYRef = React.useRef(0);
   const [formData, setFormData] = useState({
@@ -337,14 +347,6 @@ const ContentItemModal = ({ isOpen, onClose, onSave, item, title, type }) => {
       };
     }
   }, [isOpen]);
-
-  // Prevent touch scroll on overlay (allow only on modal)
-  const handleTouchMove = React.useCallback((e) => {
-    if (modalRef.current && modalRef.current.contains(e.target)) {
-      return;
-    }
-    e.preventDefault();
-  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -413,7 +415,7 @@ const ContentItemModal = ({ isOpen, onClose, onSave, item, title, type }) => {
     if (!formData.title.trim()) return;
     setSaving(true);
     try {
-      await onSave(formData);
+      await onSave(formData, categoryId, selectedOrgId, item?.id);
       onClose();
     } catch (err) {
       console.error('Error saving content:', err);
@@ -426,7 +428,7 @@ const ContentItemModal = ({ isOpen, onClose, onSave, item, title, type }) => {
   if (!isOpen) return null;
 
   return (
-    <div style={styles.modalOverlay} onClick={onClose} onTouchMove={handleTouchMove}>
+    <div style={styles.modalOverlay} onClick={onClose}>
       <div ref={modalRef} style={styles.modal} onClick={e => e.stopPropagation()}>
         <button style={styles.closeBtn} onClick={onClose}>
           <CloseIcon />
@@ -478,17 +480,6 @@ const ContentItemModal = ({ isOpen, onClose, onSave, item, title, type }) => {
         <div style={styles.formGroup}>
           <label style={styles.label}>External Link</label>
           <input type="url" value={formData.external_link} onChange={e => handleChange('external_link', e.target.value)} style={styles.input} placeholder="https://..." />
-          {formData.external_link && (
-            <input type="text" value={formData.external_link_label} onChange={e => handleChange('external_link_label', e.target.value)} style={{ ...styles.input, marginTop: '8px' }} placeholder="Link label (e.g., 'View Resource')" />
-          )}
-        </div>
-
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Quiz Link</label>
-          <input type="url" value={formData.quiz_link} onChange={e => handleChange('quiz_link', e.target.value)} style={styles.input} placeholder="https://..." />
-          {formData.quiz_link && (
-            <input type="text" value={formData.quiz_link_label} onChange={e => handleChange('quiz_link_label', e.target.value)} style={{ ...styles.input, marginTop: '8px' }} placeholder="Quiz label (e.g., 'Take Assessment')" />
-          )}
         </div>
 
         <div style={styles.toggleGroup}>
@@ -496,12 +487,6 @@ const ContentItemModal = ({ isOpen, onClose, onSave, item, title, type }) => {
             <span style={styles.toggleLabel}>Downloadable</span>
             <button style={{ ...styles.toggle, backgroundColor: formData.is_downloadable ? 'var(--primary-blue)' : 'var(--border-light)' }} onClick={() => handleChange('is_downloadable', !formData.is_downloadable)}>
               <div style={{ ...styles.toggleKnob, transform: formData.is_downloadable ? 'translateX(20px)' : 'translateX(0)' }} />
-            </button>
-          </div>
-          <div style={styles.toggleRow}>
-            <span style={styles.toggleLabel}>Use Company Logo as Thumbnail</span>
-            <button style={{ ...styles.toggle, backgroundColor: formData.use_company_logo ? 'var(--primary-blue)' : 'var(--border-light)' }} onClick={() => handleChange('use_company_logo', !formData.use_company_logo)}>
-              <div style={{ ...styles.toggleKnob, transform: formData.use_company_logo ? 'translateX(20px)' : 'translateX(0)' }} />
             </button>
           </div>
         </div>
@@ -514,8 +499,8 @@ const ContentItemModal = ({ isOpen, onClose, onSave, item, title, type }) => {
   );
 };
 
-// Multi-Category Content Modal
-const MultiCategoryContentModal = ({ isOpen, onClose, onSave, libraryCategories, trainingCategories, type }) => {
+// Multi-Category Content Modal with Org Selection
+const MultiCategoryContentModal = ({ isOpen, onClose, onSave, categories, organizations, type }) => {
   const modalRef = React.useRef(null);
   const scrollYRef = React.useRef(0);
   const [formData, setFormData] = useState({
@@ -523,7 +508,8 @@ const MultiCategoryContentModal = ({ isOpen, onClose, onSave, libraryCategories,
     external_link: '', external_link_label: '', quiz_link: '', quiz_link_label: '',
     is_downloadable: true, use_company_logo: false,
   });
-  const [selectedCategories, setSelectedCategories] = useState([]);
+  // { [orgId]: [categoryIds] }
+  const [selectedOrgCategories, setSelectedOrgCategories] = useState({});
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -558,28 +544,32 @@ const MultiCategoryContentModal = ({ isOpen, onClose, onSave, libraryCategories,
         external_link: '', external_link_label: '', quiz_link: '', quiz_link_label: '',
         is_downloadable: true, use_company_logo: false,
       });
-      setSelectedCategories([]);
+      setSelectedOrgCategories({});
     }
   }, [isOpen]);
-
-  // Prevent touch scroll on overlay
-  const handleTouchMove = React.useCallback((e) => {
-    if (modalRef.current && modalRef.current.contains(e.target)) {
-      return;
-    }
-    e.preventDefault();
-  }, []);
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const toggleCategory = (categoryId) => {
-    setSelectedCategories(prev => {
-      if (prev.includes(categoryId)) {
-        return prev.filter(id => id !== categoryId);
+  const toggleOrg = (orgId) => {
+    setSelectedOrgCategories(prev => {
+      if (prev[orgId]) {
+        const newState = { ...prev };
+        delete newState[orgId];
+        return newState;
       }
-      return [...prev, categoryId];
+      return { ...prev, [orgId]: [] };
+    });
+  };
+
+  const toggleCategory = (orgId, categoryId) => {
+    setSelectedOrgCategories(prev => {
+      const orgCats = prev[orgId] || [];
+      if (orgCats.includes(categoryId)) {
+        return { ...prev, [orgId]: orgCats.filter(id => id !== categoryId) };
+      }
+      return { ...prev, [orgId]: [...orgCats, categoryId] };
     });
   };
 
@@ -625,10 +615,13 @@ const MultiCategoryContentModal = ({ isOpen, onClose, onSave, libraryCategories,
   };
 
   const handleSave = async () => {
-    if (!formData.title.trim() || selectedCategories.length === 0) return;
+    // Check if at least one org with at least one category is selected
+    const hasSelection = Object.entries(selectedOrgCategories).some(([, cats]) => cats.length > 0);
+    if (!formData.title.trim() || !hasSelection) return;
+
     setSaving(true);
     try {
-      await onSave(formData, selectedCategories);
+      await onSave(formData, selectedOrgCategories);
       onClose();
     } catch (err) {
       console.error('Error saving content:', err);
@@ -638,62 +631,59 @@ const MultiCategoryContentModal = ({ isOpen, onClose, onSave, libraryCategories,
     }
   };
 
-  const canSave = formData.title.trim() && selectedCategories.length > 0 && !saving;
+  const hasSelection = Object.entries(selectedOrgCategories).some(([, cats]) => cats.length > 0);
+  const canSave = formData.title.trim() && hasSelection && !saving;
 
   if (!isOpen) return null;
 
   return (
-    <div style={styles.modalOverlay} onClick={onClose} onTouchMove={handleTouchMove}>
+    <div style={styles.modalOverlay} onClick={onClose}>
       <div ref={modalRef} style={styles.modal} onClick={e => e.stopPropagation()}>
         <button style={styles.closeBtn} onClick={onClose}>
           <CloseIcon />
         </button>
-        <h2 style={styles.modalTitle}>Add Content to Multiple Categories</h2>
+        <h2 style={styles.modalTitle}>Add to Multiple Orgs/Categories</h2>
 
-        {/* Category Selection */}
+        {/* Organization & Category Selection */}
         <div style={styles.formGroup}>
-          <label style={styles.label}>Select Categories *</label>
-          <p style={styles.categoryHint}>Choose one or more categories for this content</p>
+          <label style={styles.label}>Select Organizations & Categories *</label>
+          <p style={styles.categoryHint}>Choose where this content should appear</p>
 
-          {libraryCategories.length > 0 && (
-            <div style={styles.categorySection}>
-              <div style={styles.categorySectionTitle}>Resource Library</div>
-              {libraryCategories.map(cat => (
-                <label key={cat.id} style={styles.checkboxRow}>
-                  <input
-                    type="checkbox"
-                    checked={selectedCategories.includes(cat.id)}
-                    onChange={() => toggleCategory(cat.id)}
-                    style={styles.checkbox}
-                  />
-                  <span style={styles.checkboxLabel}>{cat.title}</span>
-                </label>
-              ))}
-            </div>
-          )}
+          {organizations.map(org => (
+            <div key={org.id} style={styles.orgSection}>
+              <label style={styles.orgCheckRow}>
+                <input
+                  type="checkbox"
+                  checked={!!selectedOrgCategories[org.id]}
+                  onChange={() => toggleOrg(org.id)}
+                  style={styles.checkbox}
+                />
+                <span style={{ ...styles.orgLabel, color: org.code === 'AM' ? '#1d4ed8' : '#be185d' }}>
+                  {org.name} ({org.code})
+                </span>
+              </label>
 
-          {trainingCategories.length > 0 && (
-            <div style={styles.categorySection}>
-              <div style={styles.categorySectionTitle}>Training & Development</div>
-              {trainingCategories.map(cat => (
-                <label key={cat.id} style={styles.checkboxRow}>
-                  <input
-                    type="checkbox"
-                    checked={selectedCategories.includes(cat.id)}
-                    onChange={() => toggleCategory(cat.id)}
-                    style={styles.checkbox}
-                  />
-                  <span style={styles.checkboxLabel}>{cat.title}</span>
-                </label>
-              ))}
+              {selectedOrgCategories[org.id] && (
+                <div style={styles.categoryCheckboxes}>
+                  {categories.length > 0 ? (
+                    categories.map(cat => (
+                      <label key={cat.id} style={styles.catCheckRow}>
+                        <input
+                          type="checkbox"
+                          checked={selectedOrgCategories[org.id]?.includes(cat.id)}
+                          onChange={() => toggleCategory(org.id, cat.id)}
+                          style={styles.checkbox}
+                        />
+                        <span style={styles.catLabel}>{cat.title}</span>
+                      </label>
+                    ))
+                  ) : (
+                    <p style={styles.noCatsHint}>No categories yet. Create one first.</p>
+                  )}
+                </div>
+              )}
             </div>
-          )}
-
-          {selectedCategories.length > 0 && (
-            <div style={styles.selectedCount}>
-              {selectedCategories.length} categor{selectedCategories.length === 1 ? 'y' : 'ies'} selected
-            </div>
-          )}
+          ))}
         </div>
 
         <div style={styles.formGroup}>
@@ -741,17 +731,6 @@ const MultiCategoryContentModal = ({ isOpen, onClose, onSave, libraryCategories,
         <div style={styles.formGroup}>
           <label style={styles.label}>External Link</label>
           <input type="url" value={formData.external_link} onChange={e => handleChange('external_link', e.target.value)} style={styles.input} placeholder="https://..." />
-          {formData.external_link && (
-            <input type="text" value={formData.external_link_label} onChange={e => handleChange('external_link_label', e.target.value)} style={{ ...styles.input, marginTop: '8px' }} placeholder="Link label (e.g., 'View Resource')" />
-          )}
-        </div>
-
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Quiz Link</label>
-          <input type="url" value={formData.quiz_link} onChange={e => handleChange('quiz_link', e.target.value)} style={styles.input} placeholder="https://..." />
-          {formData.quiz_link && (
-            <input type="text" value={formData.quiz_link_label} onChange={e => handleChange('quiz_link_label', e.target.value)} style={{ ...styles.input, marginTop: '8px' }} placeholder="Quiz label (e.g., 'Take Assessment')" />
-          )}
         </div>
 
         <div style={styles.toggleGroup}>
@@ -761,16 +740,10 @@ const MultiCategoryContentModal = ({ isOpen, onClose, onSave, libraryCategories,
               <div style={{ ...styles.toggleKnob, transform: formData.is_downloadable ? 'translateX(20px)' : 'translateX(0)' }} />
             </button>
           </div>
-          <div style={styles.toggleRow}>
-            <span style={styles.toggleLabel}>Use Company Logo as Thumbnail</span>
-            <button style={{ ...styles.toggle, backgroundColor: formData.use_company_logo ? 'var(--primary-blue)' : 'var(--border-light)' }} onClick={() => handleChange('use_company_logo', !formData.use_company_logo)}>
-              <div style={{ ...styles.toggleKnob, transform: formData.use_company_logo ? 'translateX(20px)' : 'translateX(0)' }} />
-            </button>
-          </div>
         </div>
 
         <button style={{ ...styles.saveBtn, opacity: canSave ? 1 : 0.5 }} onClick={handleSave} disabled={!canSave}>
-          {saving ? 'Saving...' : `Add to ${selectedCategories.length} Categor${selectedCategories.length === 1 ? 'y' : 'ies'}`}
+          {saving ? 'Saving...' : 'Add Content'}
         </button>
       </div>
     </div>
@@ -780,21 +753,25 @@ const MultiCategoryContentModal = ({ isOpen, onClose, onSave, libraryCategories,
 // Main Component
 const ManageContentScreen = ({ type, title, backPath }) => {
   const navigate = useNavigate();
-  const {
-    libraryCategories, trainingCategories,
-    addCategory, updateCategory, deleteCategory,
-    addContentItem, addContentToCategories, updateContentItem, deleteContentItem,
-    removeContentFromCategory,
-    reorderCategories, reorderContentItems,
-  } = useContent();
+  const { organizations } = useAuth();
+  const { libraryCategories, trainingCategories, addCategory, updateCategory, deleteCategory, reorderCategories, reorderContentItems, refreshContent } = useContent();
 
   const categories = type === 'library' ? libraryCategories : trainingCategories;
 
+  // Org toggle state - default to first org
+  const [selectedOrgId, setSelectedOrgId] = useState(null);
+
+  // Content and assignments
+  const [contentItems, setContentItems] = useState([]);
+  const [orgAssignments, setOrgAssignments] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Modal states
   const [categoryModal, setCategoryModal] = useState({ open: false, category: null });
   const [contentModal, setContentModal] = useState({ open: false, item: null, categoryId: null });
   const [multiCategoryModal, setMultiCategoryModal] = useState(false);
   const [expandedCategory, setExpandedCategory] = useState(null);
-  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, type: null, id: null, name: '', categoryId: null, isMultiCategory: false });
+  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, type: null, id: null, name: '', categoryId: null });
   const [activeId, setActiveId] = useState(null);
 
   const sensors = useSensors(
@@ -802,6 +779,217 @@ const ManageContentScreen = ({ type, title, backPath }) => {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
+  // Set default org on mount
+  useEffect(() => {
+    if (organizations?.length > 0 && !selectedOrgId) {
+      setSelectedOrgId(organizations[0].id);
+    }
+  }, [organizations, selectedOrgId]);
+
+  // Load content items and assignments
+  const fetchContent = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      // Fetch all content items
+      const { data: items, error: itemsError } = await supabase
+        .from('content_items')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order');
+
+      if (itemsError) throw itemsError;
+
+      // Fetch all assignments
+      const { data: assignments, error: assignmentsError } = await supabase
+        .from('content_item_assignments')
+        .select('*');
+
+      if (assignmentsError) throw assignmentsError;
+
+      setContentItems(items || []);
+      setOrgAssignments(assignments || []);
+    } catch (error) {
+      console.error('Error fetching content:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchContent();
+  }, [fetchContent]);
+
+  // Merge content items into categories for display
+  const categoriesWithItems = categories.map(cat => ({
+    ...cat,
+    items: contentItems.filter(item =>
+      orgAssignments.some(a =>
+        a.content_item_id === item.id &&
+        a.category_id === cat.id
+      )
+    )
+  }));
+
+  // Category handlers
+  const handleSaveCategory = async (data) => {
+    if (categoryModal.category) {
+      await updateCategory(categoryModal.category.id, data);
+    } else {
+      await addCategory(type, data.title, data.description);
+    }
+  };
+
+  // Content handlers - single category + current org
+  const handleSaveContent = async (formData, categoryId, orgId, existingItemId) => {
+    try {
+      let itemId = existingItemId;
+
+      if (existingItemId) {
+        // Update existing item
+        const { error } = await supabase
+          .from('content_items')
+          .update({
+            title: formData.title,
+            description: formData.description,
+            thumbnail_url: formData.thumbnail_url,
+            file_url: formData.file_url,
+            file_name: formData.file_name,
+            external_link: formData.external_link,
+            external_link_label: formData.external_link_label,
+            quiz_link: formData.quiz_link,
+            quiz_link_label: formData.quiz_link_label,
+            is_downloadable: formData.is_downloadable,
+            use_company_logo: formData.use_company_logo,
+          })
+          .eq('id', existingItemId);
+
+        if (error) throw error;
+      } else {
+        // Create new item
+        const { data: newItem, error } = await supabase
+          .from('content_items')
+          .insert({
+            title: formData.title,
+            description: formData.description,
+            thumbnail_url: formData.thumbnail_url,
+            file_url: formData.file_url,
+            file_name: formData.file_name,
+            external_link: formData.external_link,
+            external_link_label: formData.external_link_label,
+            quiz_link: formData.quiz_link,
+            quiz_link_label: formData.quiz_link_label,
+            is_downloadable: formData.is_downloadable,
+            use_company_logo: formData.use_company_logo,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        itemId = newItem.id;
+
+        // Create assignment for this org + category
+        const { error: assignmentError } = await supabase
+          .from('content_item_assignments')
+          .insert({
+            content_item_id: itemId,
+            organization_id: orgId,
+            category_id: categoryId,
+            sort_order: 0,
+          });
+
+        if (assignmentError) throw assignmentError;
+      }
+
+      await fetchContent();
+      refreshContent && refreshContent();
+    } catch (error) {
+      console.error('Error saving content:', error);
+      throw error;
+    }
+  };
+
+  // Multi-category content handler
+  const handleSaveMultiContent = async (formData, selectedOrgCategories) => {
+    try {
+      // Create content item
+      const { data: newItem, error } = await supabase
+        .from('content_items')
+        .insert({
+          title: formData.title,
+          description: formData.description,
+          thumbnail_url: formData.thumbnail_url,
+          file_url: formData.file_url,
+          file_name: formData.file_name,
+          external_link: formData.external_link,
+          external_link_label: formData.external_link_label,
+          quiz_link: formData.quiz_link,
+          quiz_link_label: formData.quiz_link_label,
+          is_downloadable: formData.is_downloadable,
+          use_company_logo: formData.use_company_logo,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Create assignments for each org + category
+      const assignments = [];
+      Object.entries(selectedOrgCategories).forEach(([orgId, categoryIds]) => {
+        categoryIds.forEach(catId => {
+          assignments.push({
+            content_item_id: newItem.id,
+            organization_id: orgId,
+            category_id: catId,
+            sort_order: 0,
+          });
+        });
+      });
+
+      if (assignments.length > 0) {
+        const { error: assignmentError } = await supabase
+          .from('content_item_assignments')
+          .insert(assignments);
+
+        if (assignmentError) throw assignmentError;
+      }
+
+      await fetchContent();
+      refreshContent && refreshContent();
+    } catch (error) {
+      console.error('Error saving multi-category content:', error);
+      throw error;
+    }
+  };
+
+  // Delete handler
+  const confirmDelete = async () => {
+    try {
+      if (deleteConfirm.type === 'category') {
+        await deleteCategory(deleteConfirm.id);
+      } else {
+        // Delete content - remove assignments first, then item
+        await supabase
+          .from('content_item_assignments')
+          .delete()
+          .eq('content_item_id', deleteConfirm.id);
+
+        await supabase
+          .from('content_items')
+          .delete()
+          .eq('id', deleteConfirm.id);
+
+        await fetchContent();
+        refreshContent && refreshContent();
+      }
+    } catch (err) {
+      console.error('Error deleting:', err);
+      alert('Failed to delete');
+    }
+    setDeleteConfirm({ open: false, type: null, id: null, name: '', categoryId: null });
+  };
+
+  // Drag handlers
   const handleDragStart = (event) => {
     setActiveId(event.active.id);
   };
@@ -811,50 +999,24 @@ const ManageContentScreen = ({ type, title, backPath }) => {
     setActiveId(null);
 
     if (active.id !== over?.id) {
-      const oldIndex = categories.findIndex(c => c.id === active.id);
-      const newIndex = categories.findIndex(c => c.id === over.id);
-      const newOrder = arrayMove(categories, oldIndex, newIndex);
+      const oldIndex = categoriesWithItems.findIndex(c => c.id === active.id);
+      const newIndex = categoriesWithItems.findIndex(c => c.id === over.id);
+      const newOrder = arrayMove(categoriesWithItems, oldIndex, newIndex);
       reorderCategories(type, newOrder.map(c => c.id));
     }
   };
 
-  const handleSaveCategory = async (data) => {
-    if (categoryModal.category) {
-      await updateCategory(categoryModal.category.id, data);
-    } else {
-      await addCategory(type, data.title, data.description);
-    }
-  };
+  const activeCategory = activeId ? categoriesWithItems.find(c => c.id === activeId) : null;
 
-  const handleSaveContent = async (data) => {
-    if (contentModal.item) {
-      await updateContentItem(contentModal.item.id, data);
-    } else {
-      await addContentItem(contentModal.categoryId, data);
-    }
-  };
-
-  const handleSaveMultiCategoryContent = async (data, selectedCategoryIds) => {
-    await addContentToCategories(data, selectedCategoryIds);
-  };
-
-  const confirmDelete = async (deleteEverywhere = true) => {
-    try {
-      if (deleteConfirm.type === 'category') {
-        await deleteCategory(deleteConfirm.id);
-      } else if (deleteEverywhere) {
-        await deleteContentItem(deleteConfirm.id);
-      } else {
-        await removeContentFromCategory(deleteConfirm.id, deleteConfirm.categoryId);
-      }
-    } catch (err) {
-      console.error('Error deleting:', err);
-      alert('Failed to delete');
-    }
-    setDeleteConfirm({ open: false, type: null, id: null, name: '', categoryId: null, isMultiCategory: false });
-  };
-
-  const activeCategory = activeId ? categories.find(c => c.id === activeId) : null;
+  if (loading && contentItems.length === 0) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.loadingContainer}>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.container}>
@@ -871,6 +1033,26 @@ const ManageContentScreen = ({ type, title, backPath }) => {
 
       <div style={styles.contentContainer}>
         <div style={styles.content}>
+          {/* Org Toggle */}
+          {organizations?.length > 1 && (
+            <div style={styles.orgToggleContainer}>
+              {organizations.map(org => (
+                <button
+                  key={org.id}
+                  style={{
+                    ...styles.orgToggleBtn,
+                    backgroundColor: selectedOrgId === org.id ? (org.code === 'AM' ? '#dbeafe' : '#fce7f3') : '#f8fafc',
+                    color: selectedOrgId === org.id ? (org.code === 'AM' ? '#1d4ed8' : '#be185d') : '#64748b',
+                    fontWeight: selectedOrgId === org.id ? '600' : '400',
+                  }}
+                  onClick={() => setSelectedOrgId(org.id)}
+                >
+                  {org.code}
+                </button>
+              ))}
+            </div>
+          )}
+
           <button style={styles.addCategoryBtn} onClick={() => setCategoryModal({ open: true, category: null })}>
             <PlusIcon />
             <span>Add Category</span>
@@ -878,31 +1060,27 @@ const ManageContentScreen = ({ type, title, backPath }) => {
 
           <button style={styles.addMultiContentBtn} onClick={() => setMultiCategoryModal(true)}>
             <PlusIcon />
-            <span>Add Content to Multiple Categories</span>
+            <span>Add to Multiple Orgs/Categories</span>
           </button>
 
-          {categories.length > 0 ? (
+          {categoriesWithItems.length > 0 ? (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-              <SortableContext items={categories.map(c => c.id)} strategy={verticalListSortingStrategy}>
+              <SortableContext items={categoriesWithItems.map(c => c.id)} strategy={verticalListSortingStrategy}>
                 <div style={styles.categoriesList}>
-                  {categories.map((category, index) => (
+                  {categoriesWithItems.map((category) => (
                     <SortableCategoryItem
                       key={category.id}
                       category={category}
-                      index={index}
                       isExpanded={expandedCategory === category.id}
                       onToggle={() => setExpandedCategory(expandedCategory === category.id ? null : category.id)}
                       onEdit={() => setCategoryModal({ open: true, category })}
                       onDelete={() => setDeleteConfirm({ open: true, type: 'category', id: category.id, name: category.title })}
                       onAddContent={() => setContentModal({ open: true, item: null, categoryId: category.id })}
                       onEditContent={(item) => setContentModal({ open: true, item, categoryId: category.id })}
-                      onDeleteContent={(item) => {
-                        // Count how many categories this item is in
-                        const allCats = [...libraryCategories, ...trainingCategories];
-                        const categoryCount = allCats.filter(c => c.items.some(i => i.id === item.id)).length;
-                        setDeleteConfirm({ open: true, type: 'content', id: item.id, name: item.title, categoryId: category.id, isMultiCategory: categoryCount > 1 });
-                      }}
+                      onDeleteContent={(item) => setDeleteConfirm({ open: true, type: 'content', id: item.id, name: item.title, categoryId: category.id })}
                       onReorderItems={reorderContentItems}
+                      selectedOrgId={selectedOrgId}
+                      orgAssignments={orgAssignments}
                     />
                   ))}
                 </div>
@@ -946,39 +1124,36 @@ const ManageContentScreen = ({ type, title, backPath }) => {
         item={contentModal.item}
         title={contentModal.item ? 'Edit Content' : 'Add Content'}
         type={type}
+        categoryId={contentModal.categoryId}
+        selectedOrgId={selectedOrgId}
       />
 
       <MultiCategoryContentModal
         isOpen={multiCategoryModal}
         onClose={() => setMultiCategoryModal(false)}
-        onSave={handleSaveMultiCategoryContent}
-        libraryCategories={libraryCategories}
-        trainingCategories={trainingCategories}
+        onSave={handleSaveMultiContent}
+        categories={categories}
+        organizations={organizations || []}
         type={type}
       />
 
       {deleteConfirm.open && (
-        <div style={styles.modalOverlay} onClick={() => setDeleteConfirm({ open: false, type: null, id: null, name: '', categoryId: null, isMultiCategory: false })}>
+        <div style={styles.modalOverlay} onClick={() => setDeleteConfirm({ open: false, type: null, id: null, name: '', categoryId: null })}>
           <div style={styles.deleteModal} onClick={e => e.stopPropagation()}>
             <h2 style={styles.deleteModalTitle}>
-              {deleteConfirm.type === 'category' ? 'Delete Category?' : (deleteConfirm.isMultiCategory ? 'Remove Content?' : 'Delete Content?')}
+              {deleteConfirm.type === 'category' ? 'Delete Category?' : 'Delete Content?'}
             </h2>
             <p style={styles.deleteText}>
               {deleteConfirm.type === 'category'
-                ? `Are you sure you want to delete "${deleteConfirm.name}"? All content in this category will also be deleted.`
-                : deleteConfirm.isMultiCategory
-                  ? `"${deleteConfirm.name}" is in multiple categories. What would you like to do?`
-                  : `Are you sure you want to delete "${deleteConfirm.name}"?`
+                ? `Are you sure you want to delete "${deleteConfirm.name}"?`
+                : `Are you sure you want to delete "${deleteConfirm.name}"?`
               }
             </p>
             <div style={styles.deleteActionsVertical}>
-              {deleteConfirm.type === 'content' && deleteConfirm.isMultiCategory && (
-                <button style={styles.removeBtnFull} onClick={() => confirmDelete(false)}>Remove from This Category</button>
-              )}
-              <button style={styles.deleteBtnFull} onClick={() => confirmDelete(true)}>
-                {deleteConfirm.type === 'category' ? 'Delete Category' : (deleteConfirm.isMultiCategory ? 'Delete from All Categories' : 'Delete')}
+              <button style={styles.deleteBtnFull} onClick={confirmDelete}>
+                Delete
               </button>
-              <button style={styles.cancelBtnFull} onClick={() => setDeleteConfirm({ open: false, type: null, id: null, name: '', categoryId: null, isMultiCategory: false })}>Cancel</button>
+              <button style={styles.cancelBtnFull} onClick={() => setDeleteConfirm({ open: false, type: null, id: null, name: '', categoryId: null })}>Cancel</button>
             </div>
           </div>
         </div>
@@ -989,6 +1164,7 @@ const ManageContentScreen = ({ type, title, backPath }) => {
 
 const styles = {
   container: { minHeight: '100%', backgroundColor: 'var(--background-off-white)', display: 'flex', flexDirection: 'column' },
+  loadingContainer: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' },
   header: { width: '100%', backgroundColor: '#ffffff', position: 'sticky', top: 0, zIndex: 100 },
   headerInner: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px 8px 16px', maxWidth: '600px', margin: '0 auto' },
   headerTitle: { color: 'var(--primary-blue)', fontSize: '20px', fontWeight: '700', margin: 0, textAlign: 'center' },
@@ -996,6 +1172,8 @@ const styles = {
   backBtn: { width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--primary-blue)', borderRadius: '10px' },
   contentContainer: { flex: 1, display: 'flex', justifyContent: 'center', overflow: 'auto' },
   content: { width: '100%', maxWidth: '600px', padding: '16px' },
+  orgToggleContainer: { display: 'flex', gap: '8px', marginBottom: '16px', padding: '4px', backgroundColor: '#f1f5f9', borderRadius: '10px' },
+  orgToggleBtn: { flex: 1, padding: '10px 16px', border: 'none', borderRadius: '8px', fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s' },
   addCategoryBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', padding: '14px', backgroundColor: 'var(--primary-blue)', color: '#ffffff', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: '600', cursor: 'pointer', marginBottom: '12px' },
   addMultiContentBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', padding: '14px', backgroundColor: '#ffffff', color: 'var(--primary-blue)', border: '2px solid var(--primary-blue)', borderRadius: '12px', fontSize: '15px', fontWeight: '600', cursor: 'pointer', marginBottom: '20px' },
   categoriesList: { display: 'flex', flexDirection: 'column', gap: '12px' },
@@ -1043,25 +1221,21 @@ const styles = {
   toggle: { width: '48px', height: '28px', borderRadius: '14px', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background-color 0.2s ease', padding: 0 },
   toggleKnob: { width: '24px', height: '24px', borderRadius: '12px', backgroundColor: '#ffffff', position: 'absolute', top: '2px', left: '2px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)', transition: 'transform 0.2s ease' },
   deleteText: { fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.5', margin: 0, padding: '0 16px 16px', textAlign: 'center' },
-  deleteActions: { display: 'flex', gap: '12px' },
-  cancelBtn: { flex: 1, padding: '12px', backgroundColor: 'var(--bg-light)', color: 'var(--text-dark)', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' },
-  removeBtn: { flex: 1, padding: '12px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' },
-  deleteBtn: { flex: 1, padding: '12px', backgroundColor: '#dc2626', color: '#ffffff', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' },
-  // iOS-style delete modal
   deleteModal: { backgroundColor: '#ffffff', borderRadius: '14px', width: '100%', maxWidth: '300px', overflow: 'hidden' },
   deleteModalTitle: { fontSize: '17px', fontWeight: '600', color: 'var(--text-dark)', margin: 0, padding: '20px 16px 8px', textAlign: 'center' },
   deleteActionsVertical: { display: 'flex', flexDirection: 'column', borderTop: '1px solid #e2e8f0', marginTop: '16px' },
-  removeBtnFull: { width: '100%', padding: '14px 16px', backgroundColor: 'transparent', color: '#f59e0b', border: 'none', borderBottom: '1px solid #e2e8f0', fontSize: '17px', fontWeight: '400', cursor: 'pointer' },
   deleteBtnFull: { width: '100%', padding: '14px 16px', backgroundColor: 'transparent', color: '#dc2626', border: 'none', borderBottom: '1px solid #e2e8f0', fontSize: '17px', fontWeight: '600', cursor: 'pointer' },
   cancelBtnFull: { width: '100%', padding: '14px 16px', backgroundColor: 'transparent', color: '#007aff', border: 'none', fontSize: '17px', fontWeight: '600', cursor: 'pointer' },
-  // Multi-category modal styles
+  // Org selection styles
   categoryHint: { fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 12px 0' },
-  categorySection: { marginBottom: '16px', padding: '12px', backgroundColor: 'var(--background-off-white)', borderRadius: '10px' },
-  categorySectionTitle: { fontSize: '13px', fontWeight: '600', color: 'var(--primary-blue)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' },
-  checkboxRow: { display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', cursor: 'pointer' },
+  orgSection: { marginBottom: '12px', padding: '12px', backgroundColor: 'var(--background-off-white)', borderRadius: '10px', border: '1px solid #e2e8f0' },
+  orgCheckRow: { display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' },
+  orgLabel: { fontSize: '15px', fontWeight: '600' },
+  categoryCheckboxes: { marginTop: '10px', marginLeft: '26px', paddingTop: '10px', borderTop: '1px solid #e2e8f0' },
+  catCheckRow: { display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', cursor: 'pointer' },
+  catLabel: { fontSize: '14px', color: 'var(--text-dark)' },
   checkbox: { width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--primary-blue)' },
-  checkboxLabel: { fontSize: '14px', color: 'var(--text-dark)' },
-  selectedCount: { fontSize: '13px', color: '#059669', fontWeight: '500', padding: '8px 12px', backgroundColor: '#ecfdf5', borderRadius: '8px', textAlign: 'center' },
+  noCatsHint: { fontSize: '13px', color: 'var(--text-muted)', fontStyle: 'italic', margin: 0 },
 };
 
 export default ManageContentScreen;
