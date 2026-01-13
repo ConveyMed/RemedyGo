@@ -996,28 +996,33 @@ const ManageContentScreen = ({ type, title, backPath }) => {
 
   const activeCategory = activeId ? categoriesWithItems.find(c => c.id === activeId) : null;
 
-  // Get item count for a category within a specific org
-  const getOrgCategoryItemCount = (orgId, categoryId) => {
-    return orgAssignments.filter(a =>
-      a.organization_id === orgId && a.category_id === categoryId
-    ).length;
-  };
+  // Selected org for toggle view
+  const [selectedOrgId, setSelectedOrgId] = useState(null);
 
-  // Get items for a category within a specific org
-  const getOrgCategoryItems = (orgId, categoryId) => {
+  // Set default org on mount
+  useEffect(() => {
+    if (allOrganizations.length > 0 && !selectedOrgId) {
+      setSelectedOrgId(allOrganizations[0].id);
+    }
+  }, [allOrganizations, selectedOrgId]);
+
+  // Get items for a category within selected org
+  const getOrgCategoryItems = (categoryId) => {
     const assignmentIds = orgAssignments
-      .filter(a => a.organization_id === orgId && a.category_id === categoryId)
+      .filter(a => a.organization_id === selectedOrgId && a.category_id === categoryId)
       .map(a => a.content_item_id);
     return contentItems.filter(item => assignmentIds.includes(item.id));
   };
 
-  // Toggle expanded category per org
-  const toggleExpanded = (orgId, categoryId) => {
-    setExpandedCategories(prev => ({
-      ...prev,
-      [orgId]: prev[orgId] === categoryId ? null : categoryId
-    }));
+  // Get item count for selected org
+  const getOrgCategoryItemCount = (categoryId) => {
+    return orgAssignments.filter(a =>
+      a.organization_id === selectedOrgId && a.category_id === categoryId
+    ).length;
   };
+
+  // Expanded category state
+  const [expandedCategory, setExpandedCategory] = useState(null);
 
   if (loading && contentItems.length === 0) {
     return (
@@ -1032,143 +1037,151 @@ const ManageContentScreen = ({ type, title, backPath }) => {
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <div style={styles.headerInnerWide}>
+        <div style={styles.headerInner}>
           <button style={styles.backBtn} onClick={() => navigate(backPath)}>
             <BackIcon />
           </button>
           <h1 style={styles.headerTitle}>{title}</h1>
           <div style={{ width: 40 }} />
         </div>
-        <div style={styles.headerBorderWide} />
+        <div style={styles.headerBorder} />
       </header>
 
-      <div style={styles.contentContainerWide}>
-        {/* Top buttons */}
-        <div style={styles.topButtons}>
+      <div style={styles.contentContainer}>
+        <div style={styles.content}>
+          {/* Org Toggle */}
+          {allOrganizations.length > 1 && (
+            <div style={styles.orgToggleContainer}>
+              {allOrganizations.map(org => (
+                <button
+                  key={org.id}
+                  style={{
+                    ...styles.orgToggleBtn,
+                    backgroundColor: selectedOrgId === org.id ? (org.code === 'AM' ? '#dbeafe' : '#fce7f3') : '#f8fafc',
+                    color: selectedOrgId === org.id ? (org.code === 'AM' ? '#1d4ed8' : '#be185d') : '#64748b',
+                    fontWeight: selectedOrgId === org.id ? '600' : '400',
+                  }}
+                  onClick={() => setSelectedOrgId(org.id)}
+                >
+                  {org.code}
+                </button>
+              ))}
+            </div>
+          )}
+
           <button style={styles.addCategoryBtn} onClick={() => setCategoryModal({ open: true, category: null })}>
             <PlusIcon />
             <span>Add Category</span>
           </button>
+
           <button style={styles.addMultiContentBtn} onClick={() => setMultiCategoryModal(true)}>
             <PlusIcon />
             <span>Add to Multiple Orgs/Categories</span>
           </button>
-        </div>
 
-        {/* Two-column org view */}
-        <div style={styles.orgColumnsContainer}>
-          {allOrganizations.map(org => (
-            <div key={org.id} style={styles.orgColumn}>
-              {/* Org header */}
-              <div style={{
-                ...styles.orgColumnHeader,
-                backgroundColor: org.code === 'AM' ? '#dbeafe' : '#fce7f3',
-                color: org.code === 'AM' ? '#1d4ed8' : '#be185d',
-              }}>
-                <span style={styles.orgColumnTitle}>{org.name}</span>
-                <span style={styles.orgColumnCode}>({org.code})</span>
-              </div>
+          {/* Categories list */}
+          {categories.length > 0 ? (
+            <div style={styles.categoriesList}>
+              {categories.map(category => {
+                const itemCount = getOrgCategoryItemCount(category.id);
+                const isExpanded = expandedCategory === category.id;
+                const items = isExpanded ? getOrgCategoryItems(category.id) : [];
 
-              {/* Categories for this org */}
-              <div style={styles.orgColumnContent}>
-                {categories.length > 0 ? (
-                  categories.map(category => {
-                    const itemCount = getOrgCategoryItemCount(org.id, category.id);
-                    const isExpanded = expandedCategories[org.id] === category.id;
-                    const items = isExpanded ? getOrgCategoryItems(org.id, category.id) : [];
-
-                    return (
-                      <div key={category.id} style={styles.categoryCard}>
-                        <div style={styles.categoryHeaderCompact}>
-                          <div
-                            style={styles.categoryInfo}
-                            onClick={() => toggleExpanded(org.id, category.id)}
-                          >
-                            <h3 style={styles.categoryName}>{category.title}</h3>
-                            <span style={styles.categoryCount}>{itemCount} item{itemCount !== 1 ? 's' : ''}</span>
-                          </div>
-                          <div style={styles.categoryActionsSmall}>
-                            <button
-                              style={styles.iconBtnSmall}
-                              onClick={() => setCategoryModal({ open: true, category })}
-                            >
-                              <EditIcon />
-                            </button>
-                            <button
-                              style={styles.iconBtnSmall}
-                              onClick={() => setDeleteConfirm({ open: true, type: 'category', id: category.id, name: category.title })}
-                            >
-                              <TrashIcon />
-                            </button>
-                            <div
-                              style={{ ...styles.expandIcon, transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
-                              onClick={() => toggleExpanded(org.id, category.id)}
-                            >
-                              <ChevronDownIcon />
-                            </div>
-                          </div>
+                return (
+                  <div key={category.id} style={styles.categoryCard}>
+                    <div style={styles.categoryHeader}>
+                      <div
+                        style={styles.categoryInfo}
+                        onClick={() => setExpandedCategory(isExpanded ? null : category.id)}
+                      >
+                        <h3 style={styles.categoryName}>{category.title}</h3>
+                        <span style={styles.categoryCount}>{itemCount} item{itemCount !== 1 ? 's' : ''}</span>
+                      </div>
+                      <div style={styles.categoryActions}>
+                        <button
+                          style={styles.iconBtn}
+                          onClick={() => setCategoryModal({ open: true, category })}
+                        >
+                          <EditIcon />
+                        </button>
+                        <button
+                          style={styles.iconBtn}
+                          onClick={() => setDeleteConfirm({ open: true, type: 'category', id: category.id, name: category.title })}
+                        >
+                          <TrashIcon />
+                        </button>
+                        <div
+                          style={{ ...styles.expandIcon, transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                          onClick={() => setExpandedCategory(isExpanded ? null : category.id)}
+                        >
+                          <ChevronDownIcon />
                         </div>
+                      </div>
+                    </div>
 
-                        {isExpanded && (
-                          <div style={styles.categoryContent}>
-                            <button
-                              style={styles.addContentBtnSmall}
-                              onClick={() => setContentModal({ open: true, item: null, categoryId: category.id, orgId: org.id })}
-                            >
-                              <PlusIcon />
-                              <span>Add</span>
-                            </button>
+                    {isExpanded && (
+                      <div style={styles.categoryContent}>
+                        <button
+                          style={styles.addContentBtn}
+                          onClick={() => setContentModal({ open: true, item: null, categoryId: category.id, orgId: selectedOrgId })}
+                        >
+                          <PlusIcon />
+                          <span>Add Content</span>
+                        </button>
 
-                            {items.length > 0 ? (
-                              <div style={styles.itemsList}>
-                                {items.map(item => (
-                                  <div key={item.id} style={styles.itemCardCompact}>
-                                    <div style={styles.itemThumbnailSmall}>
-                                      {item.thumbnail_url ? (
-                                        <img src={item.thumbnail_url} alt="" style={styles.itemThumbImage} />
-                                      ) : (
-                                        <div style={styles.itemThumbPlaceholder}>
-                                          <ImageIcon />
-                                        </div>
-                                      )}
+                        {items.length > 0 ? (
+                          <div style={styles.itemsList}>
+                            {items.map(item => (
+                              <div key={item.id} style={styles.itemCard}>
+                                <div style={styles.itemThumbnail}>
+                                  {item.thumbnail_url ? (
+                                    <img src={item.thumbnail_url} alt="" style={styles.itemThumbImage} />
+                                  ) : (
+                                    <div style={styles.itemThumbPlaceholder}>
+                                      <ImageIcon />
                                     </div>
-                                    <div style={styles.itemInfo}>
-                                      <p style={styles.itemTitle}>{item.title}</p>
-                                    </div>
-                                    <div style={styles.itemActionsSmall}>
-                                      <button
-                                        style={styles.iconBtnSmall}
-                                        onClick={() => setContentModal({ open: true, item, categoryId: category.id, orgId: org.id })}
-                                      >
-                                        <EditIcon />
-                                      </button>
-                                      <button
-                                        style={styles.iconBtnSmall}
-                                        onClick={() => setDeleteConfirm({ open: true, type: 'content', id: item.id, name: item.title, categoryId: category.id })}
-                                      >
-                                        <TrashIcon />
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))}
+                                  )}
+                                </div>
+                                <div style={styles.itemInfo}>
+                                  <p style={styles.itemTitle}>{item.title}</p>
+                                  {item.description && (
+                                    <p style={styles.itemDesc}>{item.description}</p>
+                                  )}
+                                </div>
+                                <div style={styles.itemActions}>
+                                  <button
+                                    style={styles.iconBtn}
+                                    onClick={() => setContentModal({ open: true, item, categoryId: category.id, orgId: selectedOrgId })}
+                                  >
+                                    <EditIcon />
+                                  </button>
+                                  <button
+                                    style={styles.iconBtn}
+                                    onClick={() => setDeleteConfirm({ open: true, type: 'content', id: item.id, name: item.title, categoryId: category.id })}
+                                  >
+                                    <TrashIcon />
+                                  </button>
+                                </div>
                               </div>
-                            ) : (
-                              <p style={styles.noItems}>No items</p>
-                            )}
+                            ))}
                           </div>
+                        ) : (
+                          <p style={styles.noItems}>No content items yet</p>
                         )}
                       </div>
-                    );
-                  })
-                ) : (
-                  <p style={styles.noCategories}>No categories yet</p>
-                )}
-              </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          ))}
-        </div>
+          ) : (
+            <div style={styles.emptyState}>
+              <p style={styles.emptyText}>No categories yet. Add one to get started!</p>
+            </div>
+          )}
 
-        <div style={{ height: '40px' }} />
+          <div style={{ height: '40px' }} />
+        </div>
       </div>
 
       <CategoryModal
@@ -1228,43 +1241,39 @@ const styles = {
   container: { minHeight: '100%', backgroundColor: 'var(--background-off-white)', display: 'flex', flexDirection: 'column' },
   loadingContainer: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' },
   header: { width: '100%', backgroundColor: '#ffffff', position: 'sticky', top: 0, zIndex: 100 },
-  headerInnerWide: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px 8px 16px', maxWidth: '900px', margin: '0 auto' },
+  headerInner: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px 8px 16px', maxWidth: '600px', margin: '0 auto' },
   headerTitle: { color: 'var(--primary-blue)', fontSize: '20px', fontWeight: '700', margin: 0, textAlign: 'center' },
-  headerBorderWide: { maxWidth: '900px', margin: '0 auto', height: '2px', backgroundColor: 'rgba(var(--primary-blue-rgb), 0.15)', borderRadius: '1px' },
+  headerBorder: { maxWidth: '600px', margin: '0 auto', height: '2px', backgroundColor: 'rgba(var(--primary-blue-rgb), 0.15)', borderRadius: '1px' },
   backBtn: { width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--primary-blue)', borderRadius: '10px' },
-  contentContainerWide: { flex: 1, padding: '16px', maxWidth: '900px', margin: '0 auto', width: '100%', boxSizing: 'border-box' },
-  topButtons: { display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' },
-  addCategoryBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flex: 1, minWidth: '200px', padding: '12px 16px', backgroundColor: 'var(--primary-blue)', color: '#ffffff', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' },
-  addMultiContentBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flex: 1, minWidth: '200px', padding: '12px 16px', backgroundColor: '#ffffff', color: 'var(--primary-blue)', border: '2px solid var(--primary-blue)', borderRadius: '10px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' },
-  // Two-column org layout
-  orgColumnsContainer: { display: 'flex', gap: '16px', flexWrap: 'wrap' },
-  orgColumn: { flex: 1, minWidth: '280px', backgroundColor: '#ffffff', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)' },
-  orgColumnHeader: { padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '8px' },
-  orgColumnTitle: { fontSize: '15px', fontWeight: '600' },
-  orgColumnCode: { fontSize: '13px', opacity: 0.8 },
-  orgColumnContent: { padding: '12px' },
-  noCategories: { color: 'var(--text-muted)', fontSize: '14px', textAlign: 'center', padding: '20px' },
-  // Category card (compact)
-  categoryCard: { backgroundColor: 'var(--background-off-white)', borderRadius: '10px', overflow: 'hidden', marginBottom: '8px' },
-  categoryHeaderCompact: { display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', cursor: 'pointer' },
-  categoryInfo: { flex: 1 },
-  categoryName: { fontSize: '14px', fontWeight: '600', color: 'var(--text-dark)', margin: 0 },
-  categoryCount: { fontSize: '12px', color: 'var(--text-muted)' },
-  categoryActionsSmall: { display: 'flex', alignItems: 'center', gap: '4px' },
-  expandIcon: { transition: 'transform 0.2s', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' },
-  categoryContent: { padding: '0 12px 12px 12px', borderTop: '1px solid #e2e8f0' },
-  addContentBtnSmall: { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', backgroundColor: '#ffffff', color: 'var(--primary-blue)', border: '1px dashed #cbd5e1', borderRadius: '8px', fontSize: '13px', fontWeight: '500', cursor: 'pointer', marginTop: '8px', marginBottom: '8px' },
-  // Item cards (compact)
-  itemsList: { display: 'flex', flexDirection: 'column', gap: '6px' },
-  itemCardCompact: { display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', backgroundColor: '#ffffff', borderRadius: '8px' },
-  itemThumbnailSmall: { width: '36px', height: '36px', borderRadius: '6px', overflow: 'hidden', backgroundColor: 'var(--border-light)', flexShrink: 0 },
+  contentContainer: { flex: 1, display: 'flex', justifyContent: 'center', overflow: 'auto' },
+  content: { width: '100%', maxWidth: '600px', padding: '16px' },
+  orgToggleContainer: { display: 'flex', gap: '8px', marginBottom: '16px', padding: '4px', backgroundColor: '#f1f5f9', borderRadius: '10px' },
+  orgToggleBtn: { flex: 1, padding: '10px 16px', border: 'none', borderRadius: '8px', fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s' },
+  addCategoryBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', padding: '14px', backgroundColor: 'var(--primary-blue)', color: '#ffffff', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: '600', cursor: 'pointer', marginBottom: '12px' },
+  addMultiContentBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', padding: '14px', backgroundColor: '#ffffff', color: 'var(--primary-blue)', border: '2px solid var(--primary-blue)', borderRadius: '12px', fontSize: '15px', fontWeight: '600', cursor: 'pointer', marginBottom: '20px' },
+  categoriesList: { display: 'flex', flexDirection: 'column', gap: '12px' },
+  categoryCard: { backgroundColor: '#ffffff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)' },
+  categoryHeader: { display: 'flex', alignItems: 'center', gap: '12px', padding: '16px' },
+  categoryInfo: { flex: 1, cursor: 'pointer' },
+  categoryName: { fontSize: '16px', fontWeight: '600', color: 'var(--text-dark)', margin: 0 },
+  categoryCount: { fontSize: '13px', color: 'var(--text-muted)' },
+  categoryActions: { display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' },
+  expandIcon: { transition: 'transform 0.2s', cursor: 'pointer', padding: '4px' },
+  iconBtn: { width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-light)', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-muted)' },
+  categoryContent: { padding: '0 16px 16px 16px', borderTop: '1px solid #f1f5f9' },
+  addContentBtn: { display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', backgroundColor: 'var(--bg-light)', color: 'var(--primary-blue)', border: '1px dashed #cbd5e1', borderRadius: '10px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', marginBottom: '12px', marginTop: '12px', width: '100%', justifyContent: 'center' },
+  itemsList: { display: 'flex', flexDirection: 'column', gap: '8px' },
+  itemCard: { display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', backgroundColor: 'var(--background-off-white)', borderRadius: '10px' },
+  itemThumbnail: { width: '48px', height: '48px', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'var(--border-light)', flexShrink: 0 },
   itemThumbImage: { width: '100%', height: '100%', objectFit: 'cover' },
-  itemThumbPlaceholder: { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-light)', fontSize: '12px' },
+  itemThumbPlaceholder: { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-light)' },
   itemInfo: { flex: 1, minWidth: 0 },
-  itemTitle: { fontSize: '13px', fontWeight: '500', color: 'var(--text-dark)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-  itemActionsSmall: { display: 'flex', gap: '4px' },
-  iconBtnSmall: { width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-light)', border: 'none', borderRadius: '6px', cursor: 'pointer', color: 'var(--text-muted)' },
-  noItems: { color: 'var(--text-light)', fontSize: '13px', fontStyle: 'italic', textAlign: 'center', padding: '8px' },
+  itemTitle: { fontSize: '14px', fontWeight: '500', color: 'var(--text-dark)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  itemDesc: { fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  itemActions: { display: 'flex', gap: '6px' },
+  noItems: { color: 'var(--text-light)', fontSize: '14px', fontStyle: 'italic', textAlign: 'center', padding: '12px' },
+  emptyState: { textAlign: 'center', padding: '40px 20px' },
+  emptyText: { color: 'var(--text-muted)', fontSize: '15px' },
   modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '20px', paddingTop: 'calc(20px + env(safe-area-inset-top, 0px))', paddingBottom: 'calc(100px + env(safe-area-inset-bottom, 0px))' },
   modal: { backgroundColor: '#ffffff', borderRadius: '20px', padding: '24px', maxWidth: '400px', width: '100%', position: 'relative', maxHeight: '100%', overflowY: 'auto', WebkitOverflowScrolling: 'touch' },
   closeBtn: { position: 'absolute', top: '16px', right: '16px', width: '36px', height: '36px', borderRadius: '50%', backgroundColor: 'var(--bg-light)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' },
