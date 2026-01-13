@@ -262,20 +262,9 @@ const ContentModal = ({ item, onClose, isDownloaded, onDownload, downloadProgres
           <p style={styles.modalDescription}>{item.description}</p>
         )}
 
-        {/* Action Buttons */}
+        {/* Action Buttons - Order: Document, Link, Quiz */}
         <div style={styles.actionButtons}>
-          {/* Quiz Link */}
-          {item.quiz_link && (
-            <button
-              onClick={() => openInAppBrowser(item.quiz_link)}
-              style={styles.actionBtn}
-            >
-              <QuizIcon />
-              <span>{item.quiz_link_label || 'Take Quiz'}</span>
-            </button>
-          )}
-
-          {/* View File */}
+          {/* View File / Document */}
           {item.file_url && (
             <button
               onClick={() => openInAppBrowser(item.file_url)}
@@ -294,6 +283,17 @@ const ContentModal = ({ item, onClose, isDownloaded, onDownload, downloadProgres
             >
               <LinkIcon />
               <span>{item.external_link_label || 'View Link'}</span>
+            </button>
+          )}
+
+          {/* Quiz Link */}
+          {item.quiz_link && (
+            <button
+              onClick={() => openInAppBrowser(item.quiz_link)}
+              style={styles.actionBtn}
+            >
+              <QuizIcon />
+              <span>{item.quiz_link_label || 'Take Quiz'}</span>
             </button>
           )}
         </div>
