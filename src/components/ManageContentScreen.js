@@ -1079,16 +1079,33 @@ const ManageContentScreen = ({ type, title, backPath }) => {
 
                     return (
                       <div key={category.id} style={styles.categoryCard}>
-                        <div
-                          style={styles.categoryHeaderCompact}
-                          onClick={() => toggleExpanded(org.id, category.id)}
-                        >
-                          <div style={styles.categoryInfo}>
+                        <div style={styles.categoryHeaderCompact}>
+                          <div
+                            style={styles.categoryInfo}
+                            onClick={() => toggleExpanded(org.id, category.id)}
+                          >
                             <h3 style={styles.categoryName}>{category.title}</h3>
                             <span style={styles.categoryCount}>{itemCount} item{itemCount !== 1 ? 's' : ''}</span>
                           </div>
-                          <div style={{ ...styles.expandIcon, transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-                            <ChevronDownIcon />
+                          <div style={styles.categoryActionsSmall}>
+                            <button
+                              style={styles.iconBtnSmall}
+                              onClick={() => setCategoryModal({ open: true, category })}
+                            >
+                              <EditIcon />
+                            </button>
+                            <button
+                              style={styles.iconBtnSmall}
+                              onClick={() => setDeleteConfirm({ open: true, type: 'category', id: category.id, name: category.title })}
+                            >
+                              <TrashIcon />
+                            </button>
+                            <div
+                              style={{ ...styles.expandIcon, transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                              onClick={() => toggleExpanded(org.id, category.id)}
+                            >
+                              <ChevronDownIcon />
+                            </div>
                           </div>
                         </div>
 
@@ -1233,7 +1250,8 @@ const styles = {
   categoryInfo: { flex: 1 },
   categoryName: { fontSize: '14px', fontWeight: '600', color: 'var(--text-dark)', margin: 0 },
   categoryCount: { fontSize: '12px', color: 'var(--text-muted)' },
-  expandIcon: { transition: 'transform 0.2s', color: 'var(--text-muted)' },
+  categoryActionsSmall: { display: 'flex', alignItems: 'center', gap: '4px' },
+  expandIcon: { transition: 'transform 0.2s', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' },
   categoryContent: { padding: '0 12px 12px 12px', borderTop: '1px solid #e2e8f0' },
   addContentBtnSmall: { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', backgroundColor: '#ffffff', color: 'var(--primary-blue)', border: '1px dashed #cbd5e1', borderRadius: '8px', fontSize: '13px', fontWeight: '500', cursor: 'pointer', marginTop: '8px', marginBottom: '8px' },
   // Item cards (compact)
