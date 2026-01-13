@@ -499,10 +499,20 @@ const ContentItemModal = ({ isOpen, onClose, onSave, item, title, type, category
   );
 };
 
-// Multi-Category Content Modal with Org Selection
-const MultiCategoryContentModal = ({ isOpen, onClose, onSave, categories, organizations, type }) => {
+// Multi-Category Content Modal with Org Selection - supports both Category and Content
+const MultiCategoryContentModal = ({ isOpen, onClose, onSave, onSaveCategory, categories, allCategories, organizations, type }) => {
   const modalRef = React.useRef(null);
   const scrollYRef = React.useRef(0);
+
+  // Mode: 'category' or 'content'
+  const [mode, setMode] = useState('content');
+
+  // Category form (for adding category to multiple orgs)
+  const [categoryName, setCategoryName] = useState('');
+  const [categoryDesc, setCategoryDesc] = useState('');
+  const [selectedOrgs, setSelectedOrgs] = useState([]); // array of org ids
+
+  // Content form
   const [formData, setFormData] = useState({
     title: '', description: '', thumbnail_url: '', file_url: '', file_name: '',
     external_link: '', external_link_label: '', quiz_link: '', quiz_link_label: '',
@@ -539,6 +549,10 @@ const MultiCategoryContentModal = ({ isOpen, onClose, onSave, categories, organi
   // Reset form when modal opens
   useEffect(() => {
     if (isOpen) {
+      setMode('content');
+      setCategoryName('');
+      setCategoryDesc('');
+      setSelectedOrgs([]);
       setFormData({
         title: '', description: '', thumbnail_url: '', file_url: '', file_name: '',
         external_link: '', external_link_label: '', quiz_link: '', quiz_link_label: '',
@@ -571,6 +585,12 @@ const MultiCategoryContentModal = ({ isOpen, onClose, onSave, categories, organi
       }
       return { ...prev, [orgId]: [...orgCats, categoryId] };
     });
+  };
+
+  const toggleOrgForCategory = (orgId) => {
+    setSelectedOrgs(prev =>
+      prev.includes(orgId) ? prev.filter(id => id !== orgId) : [...prev, orgId]
+    );
   };
 
   const handleThumbnailUpload = async (e) => {
@@ -614,8 +634,21 @@ const MultiCategoryContentModal = ({ isOpen, onClose, onSave, categories, organi
     }
   };
 
-  const handleSave = async () => {
-    // Check if at least one org with at least one category is selected
+  const handleSaveCategory = async () => {
+    if (!categoryName.trim() || selectedOrgs.length === 0) return;
+    setSaving(true);
+    try {
+      await onSaveCategory(categoryName.trim(), categoryDesc.trim(), selectedOrgs);
+      onClose();
+    } catch (err) {
+      console.error('Error saving category:', err);
+      alert('Failed to save category');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveContent = async () => {
     const hasSelection = Object.entries(selectedOrgCategories).some(([, cats]) => cats.length > 0);
     if (!formData.title.trim() || !hasSelection) return;
 
@@ -631,10 +664,16 @@ const MultiCategoryContentModal = ({ isOpen, onClose, onSave, categories, organi
     }
   };
 
-  const hasSelection = Object.entries(selectedOrgCategories).some(([, cats]) => cats.length > 0);
-  const canSave = formData.title.trim() && hasSelection && !saving;
+  const hasContentSelection = Object.entries(selectedOrgCategories).some(([, cats]) => cats.length > 0);
+  const canSaveContent = formData.title.trim() && hasContentSelection && !saving;
+  const canSaveCategory = categoryName.trim() && selectedOrgs.length > 0 && !saving;
 
   if (!isOpen) return null;
+
+  // Get categories for each org (for content mode)
+  const getCategoriesForOrg = (orgId) => {
+    return allCategories.filter(cat => cat.organization_id === orgId);
+  };
 
   return (
     <div style={styles.modalOverlay} onClick={onClose}>
@@ -642,11 +681,80 @@ const MultiCategoryContentModal = ({ isOpen, onClose, onSave, categories, organi
         <button style={styles.closeBtn} onClick={onClose}>
           <CloseIcon />
         </button>
-        <h2 style={styles.modalTitle}>Add to Multiple Orgs/Categories</h2>
+        <h2 style={styles.modalTitle}>Add to Multiple Orgs</h2>
 
-        {/* Organization & Category Selection */}
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Select Organizations & Categories *</label>
+        {/* Mode Toggle */}
+        <div style={styles.modeToggle}>
+          <button
+            style={{ ...styles.modeBtn, ...(mode === 'category' ? styles.modeBtnActive : {}) }}
+            onClick={() => setMode('category')}
+          >
+            Add Category
+          </button>
+          <button
+            style={{ ...styles.modeBtn, ...(mode === 'content' ? styles.modeBtnActive : {}) }}
+            onClick={() => setMode('content')}
+          >
+            Add Content
+          </button>
+        </div>
+
+        {mode === 'category' ? (
+          <>
+            {/* Category Mode */}
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Select Organizations *</label>
+              <p style={styles.categoryHint}>Category will be created in each selected org</p>
+              {organizations.map(org => (
+                <label key={org.id} style={styles.orgCheckRow}>
+                  <input
+                    type="checkbox"
+                    checked={selectedOrgs.includes(org.id)}
+                    onChange={() => toggleOrgForCategory(org.id)}
+                    style={styles.checkbox}
+                  />
+                  <span style={{ ...styles.orgLabel, color: org.code === 'AM' ? '#1d4ed8' : '#be185d' }}>
+                    {org.name} ({org.code})
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Category Name *</label>
+              <input
+                type="text"
+                value={categoryName}
+                onChange={e => setCategoryName(e.target.value)}
+                style={styles.input}
+                placeholder="Enter category name"
+              />
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Description (optional)</label>
+              <textarea
+                value={categoryDesc}
+                onChange={e => setCategoryDesc(e.target.value)}
+                style={styles.textarea}
+                placeholder="Brief description"
+                rows={2}
+              />
+            </div>
+
+            <button
+              style={{ ...styles.saveBtn, opacity: canSaveCategory ? 1 : 0.5 }}
+              onClick={handleSaveCategory}
+              disabled={!canSaveCategory}
+            >
+              {saving ? 'Saving...' : `Add Category to ${selectedOrgs.length} Org${selectedOrgs.length !== 1 ? 's' : ''}`}
+            </button>
+          </>
+        ) : (
+          <>
+            {/* Content Mode */}
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Select Organizations & Categories *</label>
           <p style={styles.categoryHint}>Choose where this content should appear</p>
 
           {organizations.map(org => (
@@ -665,8 +773,8 @@ const MultiCategoryContentModal = ({ isOpen, onClose, onSave, categories, organi
 
               {selectedOrgCategories[org.id] && (
                 <div style={styles.categoryCheckboxes}>
-                  {categories.length > 0 ? (
-                    categories.map(cat => (
+                  {getCategoriesForOrg(org.id).length > 0 ? (
+                    getCategoriesForOrg(org.id).map(cat => (
                       <label key={cat.id} style={styles.catCheckRow}>
                         <input
                           type="checkbox"
@@ -678,7 +786,7 @@ const MultiCategoryContentModal = ({ isOpen, onClose, onSave, categories, organi
                       </label>
                     ))
                   ) : (
-                    <p style={styles.noCatsHint}>No categories yet. Create one first.</p>
+                    <p style={styles.noCatsHint}>No categories for this org yet. Create one first.</p>
                   )}
                 </div>
               )}
@@ -742,9 +850,11 @@ const MultiCategoryContentModal = ({ isOpen, onClose, onSave, categories, organi
           </div>
         </div>
 
-        <button style={{ ...styles.saveBtn, opacity: canSave ? 1 : 0.5 }} onClick={handleSave} disabled={!canSave}>
+        <button style={{ ...styles.saveBtn, opacity: canSaveContent ? 1 : 0.5 }} onClick={handleSaveContent} disabled={!canSaveContent}>
           {saving ? 'Saving...' : 'Add Content'}
         </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -753,25 +863,28 @@ const MultiCategoryContentModal = ({ isOpen, onClose, onSave, categories, organi
 // Main Component
 const ManageContentScreen = ({ type, title, backPath }) => {
   const navigate = useNavigate();
-  const { libraryCategories, trainingCategories, addCategory, updateCategory, deleteCategory, reorderCategories, reorderContentItems, refreshContent } = useContent();
-
-  const categories = type === 'library' ? libraryCategories : trainingCategories;
+  const { refreshContent } = useContent();
 
   // All organizations (fetched from DB, not just user's orgs)
   const [allOrganizations, setAllOrganizations] = useState([]);
+
+  // Categories with org_id support
+  const [allCategories, setAllCategories] = useState([]);
 
   // Content and assignments
   const [contentItems, setContentItems] = useState([]);
   const [orgAssignments, setOrgAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Selected org for toggle view
+  const [selectedOrgId, setSelectedOrgId] = useState(null);
+
   // Modal states
   const [categoryModal, setCategoryModal] = useState({ open: false, category: null });
   const [contentModal, setContentModal] = useState({ open: false, item: null, categoryId: null, orgId: null });
   const [multiCategoryModal, setMultiCategoryModal] = useState(false);
-  const [expandedCategories, setExpandedCategories] = useState({}); // { [orgId]: categoryId }
-  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, type: null, id: null, name: '', categoryId: null });
-  const [activeId, setActiveId] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, type: null, id: null, name: '', categoryId: null, inMultipleOrgs: false });
+  const [expandedCategory, setExpandedCategory] = useState(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -783,18 +896,21 @@ const ManageContentScreen = ({ type, title, backPath }) => {
     try {
       setLoading(true);
 
-      // Fetch ALL organizations, content items, and assignments in parallel
-      const [orgsResult, itemsResult, assignmentsResult] = await Promise.all([
+      // Fetch ALL organizations, categories (with org_id), content items, and assignments
+      const [orgsResult, categoriesResult, itemsResult, assignmentsResult] = await Promise.all([
         supabase.from('organizations').select('*').order('code'),
+        supabase.from('content_categories').select('*').eq('type', type).eq('is_active', true).order('sort_order'),
         supabase.from('content_items').select('*').eq('is_active', true).order('sort_order'),
         supabase.from('content_item_assignments').select('*')
       ]);
 
       if (orgsResult.error) throw orgsResult.error;
+      if (categoriesResult.error) throw categoriesResult.error;
       if (itemsResult.error) throw itemsResult.error;
       if (assignmentsResult.error) throw assignmentsResult.error;
 
       setAllOrganizations(orgsResult.data || []);
+      setAllCategories(categoriesResult.data || []);
       setContentItems(itemsResult.data || []);
       setOrgAssignments(assignmentsResult.data || []);
     } catch (error) {
@@ -802,30 +918,96 @@ const ManageContentScreen = ({ type, title, backPath }) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [type]);
 
   useEffect(() => {
     fetchContent();
   }, [fetchContent]);
 
-  // Merge content items into categories for display
-  const categoriesWithItems = categories.map(cat => ({
-    ...cat,
-    items: contentItems.filter(item =>
-      orgAssignments.some(a =>
-        a.content_item_id === item.id &&
-        a.category_id === cat.id
-      )
-    )
-  }));
-
-  // Category handlers
-  const handleSaveCategory = async (data) => {
-    if (categoryModal.category) {
-      await updateCategory(categoryModal.category.id, data);
-    } else {
-      await addCategory(type, data.title, data.description);
+  // Set default org on mount
+  useEffect(() => {
+    if (allOrganizations.length > 0 && !selectedOrgId) {
+      setSelectedOrgId(allOrganizations[0].id);
     }
+  }, [allOrganizations, selectedOrgId]);
+
+  // Filter categories by selected org (using organization_id column)
+  const categories = allCategories.filter(cat => cat.organization_id === selectedOrgId);
+
+  // Get items for a category within selected org
+  const getOrgCategoryItems = (categoryId) => {
+    const assignmentIds = orgAssignments
+      .filter(a => a.organization_id === selectedOrgId && a.category_id === categoryId)
+      .map(a => a.content_item_id);
+    return contentItems.filter(item => assignmentIds.includes(item.id));
+  };
+
+  // Category handlers - now with org_id support
+  const handleSaveCategory = async (data) => {
+    try {
+      if (categoryModal.category) {
+        // Update existing category
+        const { error } = await supabase
+          .from('content_categories')
+          .update({ title: data.title, description: data.description })
+          .eq('id', categoryModal.category.id);
+        if (error) throw error;
+      } else {
+        // Add new category to selected org
+        const maxOrder = categories.reduce((max, c) => Math.max(max, c.sort_order || 0), 0);
+        const { error } = await supabase
+          .from('content_categories')
+          .insert({
+            type,
+            title: data.title,
+            description: data.description,
+            organization_id: selectedOrgId,
+            sort_order: maxOrder + 1,
+          });
+        if (error) throw error;
+      }
+      await fetchContent();
+      refreshContent && refreshContent();
+    } catch (error) {
+      console.error('Error saving category:', error);
+      alert('Failed to save category');
+    }
+  };
+
+  // Check if category with same name exists in other orgs
+  const checkCategoryInOtherOrgs = (categoryName, currentOrgId) => {
+    return allCategories.some(cat =>
+      cat.title === categoryName &&
+      cat.organization_id !== currentOrgId
+    );
+  };
+
+  // Delete category handler
+  const handleDeleteCategory = async (deleteFromAllOrgs = false) => {
+    try {
+      if (deleteFromAllOrgs) {
+        // Delete all categories with this name across all orgs
+        const { error } = await supabase
+          .from('content_categories')
+          .delete()
+          .eq('title', deleteConfirm.name)
+          .eq('type', type);
+        if (error) throw error;
+      } else {
+        // Delete just this category
+        const { error } = await supabase
+          .from('content_categories')
+          .delete()
+          .eq('id', deleteConfirm.id);
+        if (error) throw error;
+      }
+      await fetchContent();
+      refreshContent && refreshContent();
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      alert('Failed to delete category');
+    }
+    setDeleteConfirm({ open: false, type: null, id: null, name: '', categoryId: null, inMultipleOrgs: false });
   };
 
   // Content handlers - single category + current org
@@ -950,68 +1132,55 @@ const ManageContentScreen = ({ type, title, backPath }) => {
     }
   };
 
-  // Delete handler
-  const confirmDelete = async () => {
+  // Multi-org category handler - creates category in each selected org
+  const handleSaveMultiCategory = async (name, description, orgIds) => {
     try {
-      if (deleteConfirm.type === 'category') {
-        await deleteCategory(deleteConfirm.id);
-      } else {
-        // Delete content - remove assignments first, then item
-        await supabase
-          .from('content_item_assignments')
-          .delete()
-          .eq('content_item_id', deleteConfirm.id);
+      const maxOrder = allCategories.reduce((max, c) => Math.max(max, c.sort_order || 0), 0);
 
-        await supabase
-          .from('content_items')
-          .delete()
-          .eq('id', deleteConfirm.id);
+      // Create a category row for each org
+      const categoryRows = orgIds.map((orgId, index) => ({
+        type,
+        title: name,
+        description: description || null,
+        organization_id: orgId,
+        sort_order: maxOrder + 1 + index,
+      }));
 
-        await fetchContent();
-        refreshContent && refreshContent();
-      }
+      const { error } = await supabase
+        .from('content_categories')
+        .insert(categoryRows);
+
+      if (error) throw error;
+
+      await fetchContent();
+      refreshContent && refreshContent();
+    } catch (error) {
+      console.error('Error saving multi-org category:', error);
+      throw error;
+    }
+  };
+
+  // Delete content handler
+  const handleDeleteContent = async () => {
+    try {
+      // Delete content - remove assignments first, then item
+      await supabase
+        .from('content_item_assignments')
+        .delete()
+        .eq('content_item_id', deleteConfirm.id);
+
+      await supabase
+        .from('content_items')
+        .delete()
+        .eq('id', deleteConfirm.id);
+
+      await fetchContent();
+      refreshContent && refreshContent();
     } catch (err) {
-      console.error('Error deleting:', err);
+      console.error('Error deleting content:', err);
       alert('Failed to delete');
     }
-    setDeleteConfirm({ open: false, type: null, id: null, name: '', categoryId: null });
-  };
-
-  // Drag handlers
-  const handleDragStart = (event) => {
-    setActiveId(event.active.id);
-  };
-
-  const handleDragEnd = (event) => {
-    const { active, over } = event;
-    setActiveId(null);
-
-    if (active.id !== over?.id) {
-      const oldIndex = categoriesWithItems.findIndex(c => c.id === active.id);
-      const newIndex = categoriesWithItems.findIndex(c => c.id === over.id);
-      const newOrder = arrayMove(categoriesWithItems, oldIndex, newIndex);
-      reorderCategories(type, newOrder.map(c => c.id));
-    }
-  };
-
-  const activeCategory = activeId ? categoriesWithItems.find(c => c.id === activeId) : null;
-
-  // Selected org for toggle view
-  const [selectedOrgId, setSelectedOrgId] = useState(null);
-
-  // Set default org on mount
-  useEffect(() => {
-    if (allOrganizations.length > 0 && !selectedOrgId) {
-      setSelectedOrgId(allOrganizations[0].id);
-    }
-  }, [allOrganizations, selectedOrgId]);
-
-  // Get items for a category within selected org
-  const getOrgCategoryItems = (categoryId) => {
-    const assignmentIds = orgAssignments
-      .filter(a => a.organization_id === selectedOrgId && a.category_id === categoryId)
-      .map(a => a.content_item_id);
-    return contentItems.filter(item => assignmentIds.includes(item.id));
+    setDeleteConfirm({ open: false, type: null, id: null, name: '', categoryId: null, inMultipleOrgs: false });
   };
 
   // Get item count for selected org
@@ -1020,9 +1189,6 @@ const ManageContentScreen = ({ type, title, backPath }) => {
       a.organization_id === selectedOrgId && a.category_id === categoryId
     ).length;
   };
-
-  // Expanded category state
-  const [expandedCategory, setExpandedCategory] = useState(null);
 
   if (loading && contentItems.length === 0) {
     return (
@@ -1069,14 +1235,14 @@ const ManageContentScreen = ({ type, title, backPath }) => {
             </div>
           )}
 
-          <button style={styles.addCategoryBtn} onClick={() => setCategoryModal({ open: true, category: null })}>
-            <PlusIcon />
-            <span>Add Category</span>
-          </button>
-
           <button style={styles.addMultiContentBtn} onClick={() => setMultiCategoryModal(true)}>
             <PlusIcon />
             <span>Add to Multiple Orgs/Categories</span>
+          </button>
+
+          <button style={styles.addCategoryBtn} onClick={() => setCategoryModal({ open: true, category: null })}>
+            <PlusIcon />
+            <span>Add Category for {allOrganizations.find(o => o.id === selectedOrgId)?.code || '...'}</span>
           </button>
 
           {/* Categories list */}
@@ -1106,7 +1272,10 @@ const ManageContentScreen = ({ type, title, backPath }) => {
                         </button>
                         <button
                           style={styles.iconBtn}
-                          onClick={() => setDeleteConfirm({ open: true, type: 'category', id: category.id, name: category.title })}
+                          onClick={() => {
+                            const inOtherOrgs = checkCategoryInOtherOrgs(category.title, selectedOrgId);
+                            setDeleteConfirm({ open: true, type: 'category', id: category.id, name: category.title, inMultipleOrgs: inOtherOrgs });
+                          }}
                         >
                           <TrashIcon />
                         </button>
@@ -1207,28 +1376,43 @@ const ManageContentScreen = ({ type, title, backPath }) => {
         isOpen={multiCategoryModal}
         onClose={() => setMultiCategoryModal(false)}
         onSave={handleSaveMultiContent}
+        onSaveCategory={handleSaveMultiCategory}
         categories={categories}
+        allCategories={allCategories}
         organizations={allOrganizations}
         type={type}
       />
 
       {deleteConfirm.open && (
-        <div style={styles.modalOverlay} onClick={() => setDeleteConfirm({ open: false, type: null, id: null, name: '', categoryId: null })}>
+        <div style={styles.modalOverlay} onClick={() => setDeleteConfirm({ open: false, type: null, id: null, name: '', categoryId: null, inMultipleOrgs: false })}>
           <div style={styles.deleteModal} onClick={e => e.stopPropagation()}>
             <h2 style={styles.deleteModalTitle}>
               {deleteConfirm.type === 'category' ? 'Delete Category?' : 'Delete Content?'}
             </h2>
             <p style={styles.deleteText}>
-              {deleteConfirm.type === 'category'
-                ? `Are you sure you want to delete "${deleteConfirm.name}"?`
+              {deleteConfirm.type === 'category' && deleteConfirm.inMultipleOrgs
+                ? `"${deleteConfirm.name}" exists in multiple organizations. Delete from this org only or all orgs?`
                 : `Are you sure you want to delete "${deleteConfirm.name}"?`
               }
             </p>
             <div style={styles.deleteActionsVertical}>
-              <button style={styles.deleteBtnFull} onClick={confirmDelete}>
-                Delete
-              </button>
-              <button style={styles.cancelBtnFull} onClick={() => setDeleteConfirm({ open: false, type: null, id: null, name: '', categoryId: null })}>Cancel</button>
+              {deleteConfirm.type === 'category' ? (
+                <>
+                  <button style={styles.deleteBtnFull} onClick={() => handleDeleteCategory(false)}>
+                    {deleteConfirm.inMultipleOrgs ? 'Delete from This Org Only' : 'Delete'}
+                  </button>
+                  {deleteConfirm.inMultipleOrgs && (
+                    <button style={styles.deleteBtnFull} onClick={() => handleDeleteCategory(true)}>
+                      Delete from All Orgs
+                    </button>
+                  )}
+                </>
+              ) : (
+                <button style={styles.deleteBtnFull} onClick={handleDeleteContent}>
+                  Delete
+                </button>
+              )}
+              <button style={styles.cancelBtnFull} onClick={() => setDeleteConfirm({ open: false, type: null, id: null, name: '', categoryId: null, inMultipleOrgs: false })}>Cancel</button>
             </div>
           </div>
         </div>
@@ -1274,23 +1458,23 @@ const styles = {
   noItems: { color: 'var(--text-light)', fontSize: '14px', fontStyle: 'italic', textAlign: 'center', padding: '12px' },
   emptyState: { textAlign: 'center', padding: '40px 20px' },
   emptyText: { color: 'var(--text-muted)', fontSize: '15px' },
-  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '20px', paddingTop: 'calc(20px + env(safe-area-inset-top, 0px))', paddingBottom: 'calc(100px + env(safe-area-inset-bottom, 0px))' },
-  modal: { backgroundColor: '#ffffff', borderRadius: '20px', padding: '24px', maxWidth: '400px', width: '100%', position: 'relative', maxHeight: '100%', overflowY: 'auto', WebkitOverflowScrolling: 'touch' },
-  closeBtn: { position: 'absolute', top: '16px', right: '16px', width: '36px', height: '36px', borderRadius: '50%', backgroundColor: 'var(--bg-light)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' },
-  modalTitle: { fontSize: '20px', fontWeight: '600', color: 'var(--text-dark)', margin: '0 0 20px 0', paddingRight: '40px' },
-  formGroup: { marginBottom: '16px' },
-  label: { display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-muted)', marginBottom: '6px' },
-  input: { width: '100%', padding: '12px 14px', fontSize: '15px', border: '1px solid #e2e8f0', borderRadius: '10px', outline: 'none', boxSizing: 'border-box' },
-  textarea: { width: '100%', padding: '12px 14px', fontSize: '15px', border: '1px solid #e2e8f0', borderRadius: '10px', outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' },
-  saveBtn: { width: '100%', padding: '14px', backgroundColor: 'var(--primary-blue)', color: '#ffffff', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: '600', cursor: 'pointer', marginTop: '8px' },
-  uploadBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', backgroundColor: 'var(--background-off-white)', border: '1px dashed #cbd5e1', borderRadius: '10px', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '14px' },
-  thumbnailPreview: { display: 'flex', alignItems: 'center', gap: '12px' },
-  previewImage: { width: '80px', height: '80px', borderRadius: '10px', objectFit: 'cover' },
-  filePreview: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', backgroundColor: 'var(--background-off-white)', borderRadius: '10px', fontSize: '14px', color: 'var(--text-dark)' },
-  removeBtn: { padding: '6px 12px', backgroundColor: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' },
-  toggleGroup: { marginBottom: '16px' },
-  toggleRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f1f5f9' },
-  toggleLabel: { fontSize: '14px', color: 'var(--text-dark)' },
+  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '24px', paddingTop: 'calc(24px + env(safe-area-inset-top, 0px))', paddingBottom: 'calc(100px + env(safe-area-inset-bottom, 0px))' },
+  modal: { backgroundColor: '#ffffff', borderRadius: '24px', padding: '28px 24px', maxWidth: '480px', width: '100%', position: 'relative', maxHeight: '90vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch', boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)' },
+  closeBtn: { position: 'absolute', top: '20px', right: '20px', width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#f1f5f9', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', transition: 'all 0.2s' },
+  modalTitle: { fontSize: '22px', fontWeight: '700', color: 'var(--text-dark)', margin: '0 0 24px 0', paddingRight: '48px' },
+  formGroup: { marginBottom: '20px' },
+  label: { display: 'block', fontSize: '13px', fontWeight: '600', color: '#64748b', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' },
+  input: { width: '100%', padding: '14px 16px', fontSize: '16px', border: '2px solid #e2e8f0', borderRadius: '12px', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.2s' },
+  textarea: { width: '100%', padding: '14px 16px', fontSize: '16px', border: '2px solid #e2e8f0', borderRadius: '12px', outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box', transition: 'border-color 0.2s' },
+  saveBtn: { width: '100%', padding: '16px', backgroundColor: 'var(--primary-blue)', color: '#ffffff', border: 'none', borderRadius: '14px', fontSize: '16px', fontWeight: '600', cursor: 'pointer', marginTop: '12px', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(29, 78, 216, 0.3)' },
+  uploadBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '16px', backgroundColor: '#f8fafc', border: '2px dashed #cbd5e1', borderRadius: '14px', cursor: 'pointer', color: '#64748b', fontSize: '15px', fontWeight: '500', transition: 'all 0.2s' },
+  thumbnailPreview: { display: 'flex', alignItems: 'center', gap: '16px' },
+  previewImage: { width: '80px', height: '80px', borderRadius: '12px', objectFit: 'cover', border: '2px solid #e2e8f0' },
+  filePreview: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', backgroundColor: '#f8fafc', borderRadius: '12px', fontSize: '15px', color: 'var(--text-dark)' },
+  removeBtn: { padding: '8px 14px', backgroundColor: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', transition: 'all 0.2s' },
+  toggleGroup: { marginBottom: '20px', padding: '4px 0' },
+  toggleRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: '2px solid #f1f5f9' },
+  toggleLabel: { fontSize: '15px', color: 'var(--text-dark)', fontWeight: '500' },
   toggle: { width: '48px', height: '28px', borderRadius: '14px', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background-color 0.2s ease', padding: 0 },
   toggleKnob: { width: '24px', height: '24px', borderRadius: '12px', backgroundColor: '#ffffff', position: 'absolute', top: '2px', left: '2px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)', transition: 'transform 0.2s ease' },
   deleteText: { fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.5', margin: 0, padding: '0 16px 16px', textAlign: 'center' },
@@ -1300,15 +1484,19 @@ const styles = {
   deleteBtnFull: { width: '100%', padding: '14px 16px', backgroundColor: 'transparent', color: '#dc2626', border: 'none', borderBottom: '1px solid #e2e8f0', fontSize: '17px', fontWeight: '600', cursor: 'pointer' },
   cancelBtnFull: { width: '100%', padding: '14px 16px', backgroundColor: 'transparent', color: '#007aff', border: 'none', fontSize: '17px', fontWeight: '600', cursor: 'pointer' },
   // Org selection styles
-  categoryHint: { fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 12px 0' },
-  orgSection: { marginBottom: '12px', padding: '12px', backgroundColor: 'var(--background-off-white)', borderRadius: '10px', border: '1px solid #e2e8f0' },
-  orgCheckRow: { display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' },
-  orgLabel: { fontSize: '15px', fontWeight: '600' },
-  categoryCheckboxes: { marginTop: '10px', marginLeft: '26px', paddingTop: '10px', borderTop: '1px solid #e2e8f0' },
-  catCheckRow: { display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', cursor: 'pointer' },
-  catLabel: { fontSize: '14px', color: 'var(--text-dark)' },
-  checkbox: { width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--primary-blue)' },
-  noCatsHint: { fontSize: '13px', color: 'var(--text-muted)', fontStyle: 'italic', margin: 0 },
+  categoryHint: { fontSize: '14px', color: '#64748b', margin: '0 0 16px 0', lineHeight: '1.4' },
+  orgSection: { marginBottom: '16px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '14px', border: '2px solid #e2e8f0', transition: 'border-color 0.2s' },
+  orgCheckRow: { display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', padding: '4px 0' },
+  orgLabel: { fontSize: '16px', fontWeight: '600' },
+  categoryCheckboxes: { marginTop: '14px', marginLeft: '30px', paddingTop: '14px', borderTop: '2px solid #e2e8f0' },
+  catCheckRow: { display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0', cursor: 'pointer' },
+  catLabel: { fontSize: '15px', color: 'var(--text-dark)' },
+  checkbox: { width: '20px', height: '20px', cursor: 'pointer', accentColor: 'var(--primary-blue)' },
+  noCatsHint: { fontSize: '14px', color: '#94a3b8', fontStyle: 'italic', margin: 0, padding: '8px 0' },
+  // Mode toggle styles
+  modeToggle: { display: 'flex', gap: '8px', marginBottom: '24px', padding: '6px', backgroundColor: '#f1f5f9', borderRadius: '14px' },
+  modeBtn: { flex: 1, padding: '12px 20px', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '600', cursor: 'pointer', backgroundColor: 'transparent', color: '#64748b', transition: 'all 0.2s' },
+  modeBtnActive: { backgroundColor: '#ffffff', color: 'var(--primary-blue)', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)' },
 };
 
 export default ManageContentScreen;
