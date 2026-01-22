@@ -781,13 +781,15 @@ const styles = {
     justifyContent: 'center',
     zIndex: 1000,
     padding: '20px',
+    paddingTop: 'calc(20px + env(safe-area-inset-top, 0px))',
+    paddingBottom: 'calc(100px + env(safe-area-inset-bottom, 0px))',
   },
   modal: {
     backgroundColor: '#ffffff',
     borderRadius: '20px',
     width: '100%',
     maxWidth: '420px',
-    maxHeight: '90vh',
+    maxHeight: 'calc(100vh - 140px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))',
     overflow: 'auto',
   },
   modalHeader: {
