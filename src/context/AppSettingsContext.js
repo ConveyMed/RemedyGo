@@ -20,9 +20,29 @@ export const AppSettingsProvider = ({ children }) => {
   // Check if current user is admin
   const isAdmin = userProfile?.is_admin === true;
 
-  // Load settings on mount
+  // Load settings on mount and subscribe to real-time changes
   useEffect(() => {
     loadSettings();
+
+    // Real-time subscription for settings changes
+    const channel = supabase
+      .channel('app_settings_changes')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'app_settings' },
+        (payload) => {
+          if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+            setSettings(prev => ({
+              ...prev,
+              [payload.new.key]: payload.new.value
+            }));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const loadSettings = async () => {

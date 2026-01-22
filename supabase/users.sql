@@ -66,6 +66,17 @@ CREATE POLICY "Users can view all users" ON users
 CREATE POLICY "Users can update own profile" ON users
   FOR UPDATE USING (auth.uid() = id);
 
+-- Admins can update any user
+DROP POLICY IF EXISTS "Admins can update any user" ON users;
+CREATE POLICY "Admins can update any user" ON users
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1 FROM users
+      WHERE users.id = auth.uid()
+      AND users.is_admin = true
+    )
+  );
+
 CREATE POLICY "Allow insert for auth trigger" ON users
   FOR INSERT WITH CHECK (true);
 

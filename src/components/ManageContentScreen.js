@@ -885,6 +885,7 @@ const ManageContentScreen = ({ type, title, backPath }) => {
   const [multiCategoryModal, setMultiCategoryModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, type: null, id: null, name: '', categoryId: null, inMultipleOrgs: false });
   const [expandedCategory, setExpandedCategory] = useState(null);
+  const [activeCategory, setActiveCategory] = useState(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -933,6 +934,68 @@ const ManageContentScreen = ({ type, title, backPath }) => {
 
   // Filter categories by selected org (using organization_id column)
   const categories = allCategories.filter(cat => cat.organization_id === selectedOrgId);
+
+  // Drag handlers for categories
+  const handleDragStart = (event) => {
+    const draggedCategory = categories.find(c => c.id === event.active.id);
+    setActiveCategory(draggedCategory);
+  };
+
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+    setActiveCategory(null);
+
+    if (active.id !== over?.id) {
+      const oldIndex = categories.findIndex(c => c.id === active.id);
+      const newIndex = categories.findIndex(c => c.id === over.id);
+      const newOrder = arrayMove(categories, oldIndex, newIndex);
+
+      // Optimistically update local state
+      const reorderedCategories = newOrder.map((cat, index) => ({ ...cat, sort_order: index }));
+      setAllCategories(prev =>
+        prev.map(cat => {
+          const updated = reorderedCategories.find(r => r.id === cat.id);
+          return updated || cat;
+        })
+      );
+
+      // Update in database
+      try {
+        const updates = newOrder.map((cat, index) => ({
+          id: cat.id,
+          sort_order: index,
+        }));
+        for (const update of updates) {
+          await supabase
+            .from('content_categories')
+            .update({ sort_order: update.sort_order })
+            .eq('id', update.id);
+        }
+      } catch (error) {
+        console.error('Error reordering categories:', error);
+        fetchContent(); // Refresh on error
+      }
+    }
+  };
+
+  // Handler for reordering content items within a category
+  const handleReorderItems = async (categoryId, newItemIds) => {
+    try {
+      // Update sort_order in assignments table
+      for (let i = 0; i < newItemIds.length; i++) {
+        await supabase
+          .from('content_item_assignments')
+          .update({ sort_order: i })
+          .eq('content_item_id', newItemIds[i])
+          .eq('category_id', categoryId)
+          .eq('organization_id', selectedOrgId);
+      }
+      await fetchContent();
+      refreshContent && refreshContent();
+    } catch (error) {
+      console.error('Error reordering items:', error);
+    }
+  };
 
   // Get items for a category within selected org
   const getOrgCategoryItems = (categoryId) => {
@@ -1245,104 +1308,57 @@ const ManageContentScreen = ({ type, title, backPath }) => {
             <span>Add Category for {allOrganizations.find(o => o.id === selectedOrgId)?.code || '...'}</span>
           </button>
 
-          {/* Categories list */}
+          {/* Categories list with drag-and-drop */}
           {categories.length > 0 ? (
-            <div style={styles.categoriesList}>
-              {categories.map(category => {
-                const itemCount = getOrgCategoryItemCount(category.id);
-                const isExpanded = expandedCategory === category.id;
-                const items = isExpanded ? getOrgCategoryItems(category.id) : [];
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext items={categories.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                <div style={styles.categoriesList}>
+                  {categories.map(category => {
+                    const isExpanded = expandedCategory === category.id;
 
-                return (
-                  <div key={category.id} style={styles.categoryCard}>
+                    return (
+                      <SortableCategoryItem
+                        key={category.id}
+                        category={{ ...category, items: getOrgCategoryItems(category.id) }}
+                        isExpanded={isExpanded}
+                        onToggle={() => setExpandedCategory(isExpanded ? null : category.id)}
+                        onEdit={() => setCategoryModal({ open: true, category })}
+                        onDelete={() => {
+                          const inOtherOrgs = checkCategoryInOtherOrgs(category.title, selectedOrgId);
+                          setDeleteConfirm({ open: true, type: 'category', id: category.id, name: category.title, inMultipleOrgs: inOtherOrgs });
+                        }}
+                        onAddContent={() => setContentModal({ open: true, item: null, categoryId: category.id, orgId: selectedOrgId })}
+                        onEditContent={(item) => setContentModal({ open: true, item, categoryId: category.id, orgId: selectedOrgId })}
+                        onDeleteContent={(item) => setDeleteConfirm({ open: true, type: 'content', id: item.id, name: item.title, categoryId: category.id })}
+                        onReorderItems={handleReorderItems}
+                        selectedOrgId={selectedOrgId}
+                        orgAssignments={orgAssignments}
+                      />
+                    );
+                  })}
+                </div>
+              </SortableContext>
+              <DragOverlay>
+                {activeCategory ? (
+                  <div style={{ ...styles.categoryCard, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', transform: 'scale(1.02)' }}>
                     <div style={styles.categoryHeader}>
-                      <div
-                        style={styles.categoryInfo}
-                        onClick={() => setExpandedCategory(isExpanded ? null : category.id)}
-                      >
-                        <h3 style={styles.categoryName}>{category.title}</h3>
-                        <span style={styles.categoryCount}>{itemCount} item{itemCount !== 1 ? 's' : ''}</span>
-                      </div>
-                      <div style={styles.categoryActions}>
-                        <button
-                          style={styles.iconBtn}
-                          onClick={() => setCategoryModal({ open: true, category })}
-                        >
-                          <EditIcon />
-                        </button>
-                        <button
-                          style={styles.iconBtn}
-                          onClick={() => {
-                            const inOtherOrgs = checkCategoryInOtherOrgs(category.title, selectedOrgId);
-                            setDeleteConfirm({ open: true, type: 'category', id: category.id, name: category.title, inMultipleOrgs: inOtherOrgs });
-                          }}
-                        >
-                          <TrashIcon />
-                        </button>
-                        <div
-                          style={{ ...styles.expandIcon, transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
-                          onClick={() => setExpandedCategory(isExpanded ? null : category.id)}
-                        >
-                          <ChevronDownIcon />
-                        </div>
+                      <div style={styles.dragHandle}><GripIcon /></div>
+                      <div style={styles.categoryInfo}>
+                        <h3 style={styles.categoryName}>{activeCategory.title}</h3>
+                        <span style={styles.categoryCount}>
+                          {getOrgCategoryItemCount(activeCategory.id)} items
+                        </span>
                       </div>
                     </div>
-
-                    {isExpanded && (
-                      <div style={styles.categoryContent}>
-                        <button
-                          style={styles.addContentBtn}
-                          onClick={() => setContentModal({ open: true, item: null, categoryId: category.id, orgId: selectedOrgId })}
-                        >
-                          <PlusIcon />
-                          <span>Add Content</span>
-                        </button>
-
-                        {items.length > 0 ? (
-                          <div style={styles.itemsList}>
-                            {items.map(item => (
-                              <div key={item.id} style={styles.itemCard}>
-                                <div style={styles.itemThumbnail}>
-                                  {item.thumbnail_url ? (
-                                    <img src={item.thumbnail_url} alt="" style={styles.itemThumbImage} />
-                                  ) : (
-                                    <div style={styles.itemThumbPlaceholder}>
-                                      <ImageIcon />
-                                    </div>
-                                  )}
-                                </div>
-                                <div style={styles.itemInfo}>
-                                  <p style={styles.itemTitle}>{item.title}</p>
-                                  {item.description && (
-                                    <p style={styles.itemDesc}>{item.description}</p>
-                                  )}
-                                </div>
-                                <div style={styles.itemActions}>
-                                  <button
-                                    style={styles.iconBtn}
-                                    onClick={() => setContentModal({ open: true, item, categoryId: category.id, orgId: selectedOrgId })}
-                                  >
-                                    <EditIcon />
-                                  </button>
-                                  <button
-                                    style={styles.iconBtn}
-                                    onClick={() => setDeleteConfirm({ open: true, type: 'content', id: item.id, name: item.title, categoryId: category.id })}
-                                  >
-                                    <TrashIcon />
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p style={styles.noItems}>No content items yet</p>
-                        )}
-                      </div>
-                    )}
                   </div>
-                );
-              })}
-            </div>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
           ) : (
             <div style={styles.emptyState}>
               <p style={styles.emptyText}>No categories yet. Add one to get started!</p>
@@ -1438,6 +1454,8 @@ const styles = {
   categoriesList: { display: 'flex', flexDirection: 'column', gap: '12px' },
   categoryCard: { backgroundColor: '#ffffff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)' },
   categoryHeader: { display: 'flex', alignItems: 'center', gap: '12px', padding: '16px' },
+  dragHandle: { color: '#94a3b8', cursor: 'grab', padding: '4px', touchAction: 'none' },
+  dragHandleSmall: { color: '#94a3b8', cursor: 'grab', padding: '2px', touchAction: 'none' },
   categoryInfo: { flex: 1, cursor: 'pointer' },
   categoryName: { fontSize: '16px', fontWeight: '600', color: 'var(--text-dark)', margin: 0 },
   categoryCount: { fontSize: '13px', color: 'var(--text-muted)' },
