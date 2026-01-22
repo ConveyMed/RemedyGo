@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS product_docs (
   content TEXT NOT NULL,
   source_url TEXT,
   page_count INTEGER DEFAULT 1,
+  organization_id UUID REFERENCES organizations(id) ON DELETE SET NULL,
+  is_all_orgs BOOLEAN DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
