@@ -786,7 +786,7 @@ const styles = {
   },
   modal: {
     backgroundColor: '#ffffff',
-    borderRadius: '20px',
+    borderRadius: '24px',
     width: '100%',
     maxWidth: '420px',
     maxHeight: 'calc(100vh - 140px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))',
