@@ -49,5 +49,11 @@
 	<string>RemedyGo uses your location to help connect you with nearby sales representatives and events.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>RemedyGo needs access to your camera to take photos for your profile and posts.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>RemedyGo needs access to your photo library to select images for your profile and posts.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>RemedyGo saves photos to your library.</string>
 </dict>
 </plist>
