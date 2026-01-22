@@ -1,54 +1,45 @@
 -- Welcome Email Trigger
--- Automatically sends a welcome email when a new user signs up via Supabase Auth
+-- Sends welcome email when user completes their profile (profile_complete = true)
 
--- Enable the pg_net extension if not already enabled (for HTTP requests from triggers)
+-- Enable pg_net for HTTP calls
 CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
 
--- Function to send welcome email via Edge Function
-CREATE OR REPLACE FUNCTION send_welcome_email_on_signup()
-RETURNS TRIGGER AS $$
-DECLARE
-  edge_function_url TEXT;
-  service_key TEXT;
+-- Function to send welcome email when profile is completed
+CREATE OR REPLACE FUNCTION send_welcome_email_on_profile_complete()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
-  -- Get the edge function URL
-  edge_function_url := 'https://xorwukhufqdzoqaygzgd.supabase.co/functions/v1/send-welcome-email';
-
-  -- Get service role key from vault (you'll need to set this)
-  -- For now, we'll use the anon key which works for public functions
-  service_key := current_setting('app.settings.service_role_key', true);
-
-  -- Call the edge function asynchronously
-  PERFORM net.http_post(
-    url := edge_function_url,
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || COALESCE(service_key, current_setting('request.jwt.claim.sub', true))
-    ),
-    body := jsonb_build_object(
-      'email', NEW.email,
-      'name', COALESCE(NEW.raw_user_meta_data->>'first_name', NEW.raw_user_meta_data->>'name', ''),
-      'app_name', 'RemedyGo',
-      'app_url', 'https://remedygo.netlify.app'
-    )
-  );
-
+  -- Only trigger when profile_complete changes from false to true
+  IF NEW.profile_complete = true AND (OLD.profile_complete = false OR OLD.profile_complete IS NULL) THEN
+    PERFORM net.http_post(
+      url := 'https://xorwukhufqdzoqaygzgd.supabase.co/functions/v1/send-welcome-email',
+      headers := '{"Content-Type": "application/json"}'::jsonb,
+      body := jsonb_build_object(
+        'email', NEW.email,
+        'name', COALESCE(NEW.first_name, ''),
+        'app_name', 'RemedyGo',
+        'app_url', 'https://remedygo.netlify.app'
+      )
+    );
+  END IF;
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
-  -- Log error but don't fail the signup
-  RAISE WARNING 'Welcome email trigger error: %', SQLERRM;
+  -- Log but don't fail the update
+  RAISE WARNING 'Welcome email error: %', SQLERRM;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
--- Create trigger on auth.users table
-DROP TRIGGER IF EXISTS on_auth_user_created_send_welcome ON auth.users;
-
-CREATE TRIGGER on_auth_user_created_send_welcome
-  AFTER INSERT ON auth.users
+-- Trigger on users table UPDATE
+DROP TRIGGER IF EXISTS on_profile_complete_send_welcome ON users;
+CREATE TRIGGER on_profile_complete_send_welcome
+  AFTER UPDATE ON users
   FOR EACH ROW
-  EXECUTE FUNCTION send_welcome_email_on_signup();
+  EXECUTE FUNCTION send_welcome_email_on_profile_complete();
 
--- Grant necessary permissions
-GRANT USAGE ON SCHEMA net TO postgres, service_role;
-GRANT EXECUTE ON FUNCTION net.http_post TO postgres, service_role;
+-- Remove old auth.users trigger if it exists
+DROP TRIGGER IF EXISTS on_auth_user_created_send_welcome ON auth.users;
+DROP FUNCTION IF EXISTS send_welcome_email_on_signup();
