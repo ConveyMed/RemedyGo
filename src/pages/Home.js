@@ -1540,7 +1540,7 @@ const editModalStyles = {
   },
   modal: {
     position: 'absolute',
-    bottom: 0,
+    bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',
     left: '50%',
     transform: 'translateX(-50%) translateY(100%)',
     width: '100%',
@@ -1548,7 +1548,7 @@ const editModalStyles = {
     backgroundColor: '#ffffff',
     borderTopLeftRadius: '24px',
     borderTopRightRadius: '24px',
-    maxHeight: '90vh',
+    maxHeight: 'calc(100vh - 100px - env(safe-area-inset-bottom, 0px))',
     display: 'flex',
     flexDirection: 'column',
     transition: 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
