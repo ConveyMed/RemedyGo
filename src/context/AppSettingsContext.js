@@ -17,8 +17,10 @@ export const AppSettingsProvider = ({ children }) => {
   const [settings, setSettings] = useState({});
   const [loading, setLoading] = useState(true);
 
-  // Check if current user is admin
+  // Check if current user is admin or owner
   const isAdmin = userProfile?.is_admin === true;
+  const isOwner = userProfile?.is_owner === true || userProfile?.role === 'owner';
+  const canUpdateSettings = isAdmin || isOwner;
 
   // Load settings on mount and subscribe to real-time changes
   useEffect(() => {
@@ -70,9 +72,9 @@ export const AppSettingsProvider = ({ children }) => {
     }
   };
 
-  // Update a setting (admin only)
+  // Update a setting (admin or owner)
   const updateSetting = useCallback(async (key, value) => {
-    if (!isAdmin) return false;
+    if (!canUpdateSettings) return false;
 
     // Optimistic update
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -102,7 +104,7 @@ export const AppSettingsProvider = ({ children }) => {
       loadSettings();
       return false;
     }
-  }, [isAdmin, user?.id]);
+  }, [canUpdateSettings, user?.id]);
 
   // Get comment delete permission
   const getCommentDeletePermission = useCallback(() => {

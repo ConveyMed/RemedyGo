@@ -5,8 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationsContext';
 import { useAIChat } from '../context/AIChatContext';
 import { useChat } from '../context/ChatContext';
+import { useAppSettings } from '../context/AppSettingsContext';
 import { supabase } from '../config/supabase';
-import OrgSwitcher from './OrgSwitcher';
 
 // Icons
 const HomeIcon = () => (
@@ -101,10 +101,11 @@ const BottomNav = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { openCreateModal } = usePosts();
-  const { userProfile, canSwitchOrgs, currentViewOrg } = useAuth();
+  const { userProfile } = useAuth();
   const { totalUnread } = useNotifications();
   const { openChat } = useAIChat();
   const { totalUnread: chatUnread } = useChat();
+  const { settings } = useAppSettings();
 
   // Check if user can create posts (admin or editor)
   const canCreatePosts = userProfile?.role === 'admin' || userProfile?.role === 'editor' || userProfile?.is_admin === true;
@@ -137,29 +138,10 @@ const BottomNav = () => {
     }
   };
 
-  // Get visibility settings from localStorage
-  const getChatVisible = () => localStorage.getItem('showChat') !== 'false';
-  const getDirectoryVisible = () => localStorage.getItem('showDirectory') !== 'false';
-  const getAIShortcutVisible = () => localStorage.getItem('showAIShortcut') !== 'false';
-
-  const [showChat, setShowChat] = useState(getChatVisible);
-  const [showDirectory, setShowDirectory] = useState(getDirectoryVisible);
-  const [showAIShortcut, setShowAIShortcut] = useState(getAIShortcutVisible);
-
-  // Listen for storage changes (from Profile page)
-  useEffect(() => {
-    const handleStorage = () => {
-      setShowChat(getChatVisible());
-      setShowDirectory(getDirectoryVisible());
-      setShowAIShortcut(getAIShortcutVisible());
-    };
-    window.addEventListener('storage', handleStorage);
-    window.addEventListener('navVisibilityChange', handleStorage);
-    return () => {
-      window.removeEventListener('storage', handleStorage);
-      window.removeEventListener('navVisibilityChange', handleStorage);
-    };
-  }, []);
+  // Get visibility settings from global app_settings (defaults to true)
+  const showChat = settings.show_chat !== false && settings.show_chat !== 'false';
+  const showDirectory = settings.show_directory !== false && settings.show_directory !== 'false';
+  const showAIShortcut = settings.show_ai_shortcut !== false && settings.show_ai_shortcut !== 'false';
 
   // Main row items (shown in collapsed, becomes top when expanded)
   const mainItems = [
