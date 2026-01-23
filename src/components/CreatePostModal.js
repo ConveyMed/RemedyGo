@@ -709,13 +709,12 @@ const styles = {
     bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',
     left: '50%',
     transform: 'translateX(-50%) translateY(100%)',
-    width: '100%',
+    width: 'calc(100% - 16px)',
     maxWidth: '600px',
     backgroundColor: '#ffffff',
     borderRadius: '24px',
-    maxHeight: 'calc(100vh - 100px - env(safe-area-inset-bottom, 0px))',
-    display: 'flex',
-    flexDirection: 'column',
+    maxHeight: 'calc(100vh - 120px - env(safe-area-inset-bottom, 0px))',
+    overflow: 'auto',
     transition: 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
   },
   handleBar: {
@@ -734,7 +733,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '12px 16px',
+    padding: '8px 16px',
     borderBottom: '1px solid #f1f5f9',
   },
   closeButton: {
@@ -770,19 +769,19 @@ const styles = {
   authorSection: {
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
-    padding: '16px',
+    gap: '10px',
+    padding: '12px 16px',
   },
   avatar: {
-    width: '48px',
-    height: '48px',
+    width: '40px',
+    height: '40px',
     borderRadius: '50%',
     objectFit: 'cover',
     border: '2px solid #e2e8f0',
   },
   avatarPlaceholder: {
-    width: '48px',
-    height: '48px',
+    width: '40px',
+    height: '40px',
     borderRadius: '50%',
     backgroundColor: 'var(--bg-light)',
     border: '2px solid #e2e8f0',
@@ -806,14 +805,11 @@ const styles = {
     color: 'var(--text-muted)',
   },
   contentArea: {
-    flex: 1,
     padding: '0 16px',
-    minHeight: '120px',
-    overflow: 'auto',
   },
   textarea: {
     width: '100%',
-    minHeight: '100px',
+    minHeight: '80px',
     border: 'none',
     outline: 'none',
     fontSize: '16px',
@@ -958,14 +954,14 @@ const styles = {
   },
   // Notify Members
   orgSection: {
-    padding: '12px 16px',
+    padding: '10px 16px',
     borderTop: '1px solid #f1f5f9',
   },
   notifySection: {
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
-    padding: '12px 16px',
+    padding: '10px 16px',
     borderTop: '1px solid #f1f5f9',
   },
   notifyLabel: {
@@ -993,7 +989,7 @@ const styles = {
   },
   // Schedule styles
   scheduleSection: {
-    padding: '12px 16px',
+    padding: '10px 16px',
     borderTop: '1px solid #f1f5f9',
   },
   scheduleHeader: {
@@ -1001,7 +997,7 @@ const styles = {
     alignItems: 'center',
     gap: '8px',
     color: 'var(--text-muted)',
-    marginBottom: '8px',
+    marginBottom: '6px',
   },
   scheduleLabel: {
     fontSize: '14px',
@@ -1014,10 +1010,10 @@ const styles = {
     gap: '6px',
   },
   scheduleInput: {
-    padding: '10px 12px',
+    padding: '8px 12px',
     borderRadius: '10px',
     border: '1px solid #e2e8f0',
-    fontSize: '15px',
+    fontSize: '14px',
     color: 'var(--text-dark)',
     backgroundColor: 'var(--background-off-white)',
     outline: 'none',
@@ -1036,24 +1032,23 @@ const styles = {
   actions: {
     display: 'flex',
     alignItems: 'center',
-    padding: '12px 16px',
+    padding: '10px 16px',
     borderTop: '1px solid #f1f5f9',
     gap: '8px',
   },
   actionButton: {
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
-    padding: '12px 18px',
+    gap: '6px',
+    padding: '10px 14px',
     backgroundColor: 'var(--background-off-white)',
     border: '1px solid #e2e8f0',
     borderRadius: '20px',
     cursor: 'pointer',
     color: 'var(--text-muted)',
-    fontSize: '14px',
+    fontSize: '13px',
     fontWeight: '500',
     transition: 'all 0.2s ease',
-    minHeight: '44px',
   },
   // Upload Overlay
   uploadOverlay: {
