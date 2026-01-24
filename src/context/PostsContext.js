@@ -762,8 +762,15 @@ export const PostsProvider = ({ children }) => {
         };
         setScheduledPosts(prev => [scheduledPost, ...prev]);
       } else {
-        // Add to regular posts
-        setPosts(prev => [newPost, ...prev]);
+        // Add to regular posts only if it belongs to current org view
+        const shouldShowInCurrentView =
+          !currentViewOrgId || // No org filter active
+          data.is_all_orgs || // Post is for all orgs
+          data.organization_id === currentViewOrgId; // Post matches current org
+
+        if (shouldShowInCurrentView) {
+          setPosts(prev => [newPost, ...prev]);
+        }
 
         // Send notifications if enabled (only for immediate posts)
         if (notifyPush || notifyEmail) {
