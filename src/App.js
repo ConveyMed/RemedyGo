@@ -22,6 +22,8 @@ import Login from './onboarding/Login';
 import SignUp from './onboarding/SignUp';
 import EmailConfirmation from './onboarding/EmailConfirmation';
 import EmailConfirmed from './pages/EmailConfirmed';
+import ForgotPassword from './onboarding/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import ProfileComplete from './onboarding/ProfileComplete';
 import Home from './pages/Home';
 import Profile from './pages/Profile';
@@ -57,7 +59,7 @@ import './App.css';
 injectTheme();
 
 // Routes that should NOT show bottom nav
-const noNavRoutes = ['/', '/signup', '/confirm-email', '/email-confirmed', '/forgot-password', '/profile-complete', '/org-onboarding'];
+const noNavRoutes = ['/', '/signup', '/confirm-email', '/email-confirmed', '/forgot-password', '/reset-password', '/profile-complete', '/org-onboarding'];
 
 // ============================================
 // OneSignal Components
@@ -169,6 +171,12 @@ function AppContent() {
       // Clear the hash and redirect to email-confirmed
       window.history.replaceState(null, '', window.location.pathname);
       navigate('/email-confirmed', { replace: true });
+    }
+    // Check for password recovery token and redirect to reset-password page
+    if (hash && hash.includes('type=recovery') && location.pathname !== '/reset-password') {
+      // Clear the hash and redirect to reset-password
+      window.history.replaceState(null, '', window.location.pathname);
+      navigate('/reset-password', { replace: true });
     }
   }, [location.pathname, navigate]);
 
@@ -334,6 +342,8 @@ function AppContent() {
               : <AppShell><EmailConfirmation /></AppShell>
           } />
           <Route path="/email-confirmed" element={<EmailConfirmed />} />
+          <Route path="/forgot-password" element={<AppShell><ForgotPassword /></AppShell>} />
+          <Route path="/reset-password" element={<AppShell><ResetPassword /></AppShell>} />
 
           {/* Profile Complete - Only when authenticated but profile incomplete */}
           <Route path="/profile-complete" element={
