@@ -779,6 +779,8 @@ export const PostsProvider = ({ children }) => {
             senderName: `${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim(),
             postId: data.id,
             postPreview: content.substring(0, 100),
+            organizationId: data.organization_id,
+            isAllOrgs: data.is_all_orgs || false,
             notifyPush,
             notifyEmail,
           }).catch(err => console.error('Notification error:', err));

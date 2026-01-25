@@ -201,6 +201,60 @@ export const initializeOneSignal = async (userId) => {
 };
 
 /**
+ * Create default notification preferences for a user
+ * Called when device is first registered to ensure preferences exist
+ */
+const createDefaultPreferences = async (userId) => {
+  console.log('[OneSignal] Creating default notification preferences for:', userId);
+
+  try {
+    // Check if preferences already exist
+    const { data: existing } = await supabase
+      .from('user_notification_preferences')
+      .select('user_id')
+      .eq('user_id', userId)
+      .single();
+
+    if (existing) {
+      console.log('[OneSignal] Preferences already exist, skipping');
+      return;
+    }
+
+    // Create default preferences (all enabled)
+    const { error } = await supabase
+      .from('user_notification_preferences')
+      .insert({
+        user_id: userId,
+        push_new_posts: true,
+        email_new_posts: true,
+        push_post_likes: true,
+        push_post_comments: true,
+        email_post_comments: true,
+        push_comment_replies: true,
+        push_bookmarked_comments: true,
+        push_direct_messages: true,
+        push_group_messages: true,
+        push_chat_added: true,
+        push_chat_removed: true,
+        push_new_updates: true,
+        email_new_updates: true,
+        push_new_events: true,
+        email_new_events: true,
+        push_event_reminders: true,
+        email_event_reminders: true,
+      });
+
+    if (error) {
+      console.error('[OneSignal] Error creating default preferences:', error);
+    } else {
+      console.log('[OneSignal] Default preferences created successfully');
+    }
+  } catch (err) {
+    console.error('[OneSignal] Exception creating default preferences:', err);
+  }
+};
+
+/**
  * Save subscription ID to database (multi-device support)
  * Uses user_devices table with composite unique (user_id, subscription_id)
  */
@@ -232,6 +286,9 @@ const saveSubscriptionId = async (userId, subscriptionId) => {
     } else {
       console.log('[OneSignal] Subscription ID saved successfully:', data);
     }
+
+    // Ensure default notification preferences exist
+    await createDefaultPreferences(userId);
   } catch (err) {
     console.error('[OneSignal] Exception saving subscription ID:', err);
   }

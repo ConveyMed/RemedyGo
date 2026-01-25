@@ -932,8 +932,10 @@ const ManageContentScreen = ({ type, title, backPath }) => {
     }
   }, [allOrganizations, selectedOrgId]);
 
-  // Filter categories by selected org (using organization_id column)
-  const categories = allCategories.filter(cat => cat.organization_id === selectedOrgId);
+  // Filter categories by selected org and sort by sort_order
+  const categories = allCategories
+    .filter(cat => cat.organization_id === selectedOrgId)
+    .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
   // Drag handlers for categories
   const handleDragStart = (event) => {
@@ -950,14 +952,10 @@ const ManageContentScreen = ({ type, title, backPath }) => {
       const newIndex = categories.findIndex(c => c.id === over.id);
       const newOrder = arrayMove(categories, oldIndex, newIndex);
 
-      // Optimistically update local state
-      const reorderedCategories = newOrder.map((cat, index) => ({ ...cat, sort_order: index }));
-      setAllCategories(prev =>
-        prev.map(cat => {
-          const updated = reorderedCategories.find(r => r.id === cat.id);
-          return updated || cat;
-        })
-      );
+      // Optimistically update local state - rebuild array in new order
+      const reorderedCurrentOrg = newOrder.map((cat, index) => ({ ...cat, sort_order: index }));
+      const otherOrgCategories = allCategories.filter(c => c.organization_id !== selectedOrgId);
+      setAllCategories([...otherOrgCategories, ...reorderedCurrentOrg]);
 
       // Update in database
       try {
@@ -980,6 +978,15 @@ const ManageContentScreen = ({ type, title, backPath }) => {
 
   // Handler for reordering content items within a category
   const handleReorderItems = async (categoryId, newItemIds) => {
+    // Optimistically update local state - update sort_order in assignments
+    setOrgAssignments(prev => prev.map(a => {
+      if (a.organization_id === selectedOrgId && a.category_id === categoryId) {
+        const newIndex = newItemIds.indexOf(a.content_item_id);
+        return newIndex >= 0 ? { ...a, sort_order: newIndex } : a;
+      }
+      return a;
+    }));
+
     try {
       // Update sort_order in assignments table
       for (let i = 0; i < newItemIds.length; i++) {
@@ -990,19 +997,22 @@ const ManageContentScreen = ({ type, title, backPath }) => {
           .eq('category_id', categoryId)
           .eq('organization_id', selectedOrgId);
       }
-      await fetchContent();
       refreshContent && refreshContent();
     } catch (error) {
       console.error('Error reordering items:', error);
+      fetchContent(); // Refresh on error
     }
   };
 
-  // Get items for a category within selected org
+  // Get items for a category within selected org, sorted by assignment sort_order
   const getOrgCategoryItems = (categoryId) => {
-    const assignmentIds = orgAssignments
+    const assignments = orgAssignments
       .filter(a => a.organization_id === selectedOrgId && a.category_id === categoryId)
-      .map(a => a.content_item_id);
-    return contentItems.filter(item => assignmentIds.includes(item.id));
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
+    return assignments
+      .map(a => contentItems.find(item => item.id === a.content_item_id))
+      .filter(Boolean);
   };
 
   // Category handlers - now with org_id support

@@ -218,28 +218,6 @@ const AIChatPanel = () => {
             </div>
           </div>
 
-          {/* Mode Toggle */}
-          <div style={styles.toggleContainer}>
-            <button
-              style={{
-                ...styles.toggleButton,
-                ...(mode === 'gemini' ? styles.toggleButtonActive : {}),
-              }}
-              onClick={() => mode !== 'gemini' && toggleMode()}
-            >
-              Gemini
-            </button>
-            <button
-              style={{
-                ...styles.toggleButton,
-                ...(mode === 'mindstudio' ? styles.toggleButtonActive : {}),
-              }}
-              onClick={() => mode !== 'mindstudio' && toggleMode()}
-            >
-              MindStudio
-            </button>
-          </div>
-
           <button style={styles.closeButton} onClick={closeChat}>
             <ChevronDownIcon />
           </button>
@@ -898,7 +876,7 @@ const styles = {
     borderTop: '1px solid #e2e8f0',
   },
   suggestionsContainer: {
-    padding: '12px 16px 0',
+    padding: '12px 16px 16px',
   },
   suggestionsLabel: {
     fontSize: '13px',

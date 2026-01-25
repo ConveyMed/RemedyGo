@@ -16,6 +16,47 @@ const getAllUserIds = async (excludeUserId) => {
   return data.map(u => u.id).filter(id => id !== excludeUserId);
 };
 
+// Helper: Get user IDs filtered by organization
+// - If isAllOrgs: return all users
+// - If organizationId: return users in that org + admins/owners/full_line
+const getUserIdsByOrg = async (excludeUserId, organizationId = null, isAllOrgs = false) => {
+  console.log('[Push] getUserIdsByOrg - orgId:', organizationId, 'isAllOrgs:', isAllOrgs);
+
+  // If posting to all orgs, return all users
+  if (isAllOrgs || !organizationId) {
+    console.log('[Push] All orgs or no org specified - returning all users');
+    return getAllUserIds(excludeUserId);
+  }
+
+  // Get users who should receive this org-specific notification:
+  // 1. Users in the same organization
+  // 2. Admins, owners, or full_line users (they see everything)
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, organization_id, is_admin, is_owner, is_full_line')
+    .neq('id', excludeUserId);
+
+  if (error) {
+    console.error('[Push] Error fetching users by org:', error);
+    return [];
+  }
+
+  const eligibleUsers = data.filter(user => {
+    // Include if user is in the same org
+    if (user.organization_id === organizationId) return true;
+    // Include if user is admin, owner, or full_line (they see all orgs)
+    if (user.is_admin || user.is_owner || user.is_full_line) return true;
+    return false;
+  });
+
+  const userIds = eligibleUsers.map(u => u.id);
+  console.log('[Push] Users eligible for org', organizationId, ':', userIds.length, 'users');
+  console.log('[Push] Breakdown - same org:', eligibleUsers.filter(u => u.organization_id === organizationId).length,
+    ', admin/owner/full_line:', eligibleUsers.filter(u => u.is_admin || u.is_owner || u.is_full_line).length);
+
+  return userIds;
+};
+
 // Helper: Get ALL subscription IDs for users (multi-device support)
 // Also checks user preferences if preferenceColumn is specified
 const getSubscriptionIds = async (userIds, preferenceColumn = null) => {
@@ -235,25 +276,31 @@ const sendPush = async (playerIds, title, message, data = {}) => {
 
 /**
  * Send notification for a new post
+ * Filters by organization:
+ * - isAllOrgs=true: notify all users
+ * - organizationId set: notify users in that org + admins/owners/full_line
  */
 export const notifyNewPost = async ({
   senderId,
   senderName,
   postId,
   postPreview,
+  organizationId = null,
+  isAllOrgs = false,
   notifyPush = true,
   notifyEmail = false,
 }) => {
   console.log('[Push] notifyNewPost called');
   console.log('[Push] Sender ID (excluded):', senderId);
+  console.log('[Push] Organization ID:', organizationId, '| isAllOrgs:', isAllOrgs);
 
   if (!notifyPush) {
     console.log('[Push] Push disabled for this post');
     return { success: true, skipped: true };
   }
 
-  // Get all users except sender
-  const userIds = await getAllUserIds(senderId);
+  // Get users filtered by organization
+  const userIds = await getUserIdsByOrg(senderId, organizationId, isAllOrgs);
   console.log('[Push] Target user IDs:', userIds);
 
   // Get player IDs for users with push enabled for new posts
