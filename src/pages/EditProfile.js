@@ -23,6 +23,13 @@ const UserIcon = () => (
   </svg>
 );
 
+const CheckIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+    <polyline points="22 4 12 14.01 9 11.01" />
+  </svg>
+);
+
 const EditProfile = () => {
   const navigate = useNavigate();
   const { user, userProfile, refreshProfile } = useAuth();
@@ -41,6 +48,7 @@ const EditProfile = () => {
   const [email, setEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Load existing profile data
   useEffect(() => {
@@ -135,8 +143,11 @@ const EditProfile = () => {
         imageUrl = publicUrl;
       }
 
+      const emailChanged = email !== user.email;
+      const passwordChanged = newPassword.length > 0;
+
       // Update email if changed
-      if (email !== user.email) {
+      if (emailChanged) {
         const { error: emailError } = await supabase.auth.updateUser({
           email: email.trim(),
         });
@@ -144,14 +155,14 @@ const EditProfile = () => {
       }
 
       // Update password if provided
-      if (newPassword) {
+      if (passwordChanged) {
         const { error: passwordError } = await supabase.auth.updateUser({
           password: newPassword,
         });
         if (passwordError) throw passwordError;
       }
 
-      // Update profile
+      // Update profile (don't update email in users table until confirmed)
       const { error } = await supabase
         .from('users')
         .update({
@@ -161,7 +172,6 @@ const EditProfile = () => {
           phone: phone.trim() || null,
           bio: bio.trim() || null,
           profile_image_url: imageUrl,
-          email: email.trim(), // Also update email in users table
         })
         .eq('id', user.id);
 
@@ -174,7 +184,21 @@ const EditProfile = () => {
       // Refresh profile in context
       await refreshProfile();
 
-      navigate(-1);
+      // Show appropriate message
+      if (emailChanged && passwordChanged) {
+        setSuccessMessage('Password updated. Check your new email to confirm the address change.');
+      } else if (emailChanged) {
+        setSuccessMessage('Check your new email to confirm the address change.');
+        // Reset email field to current since it's not changed yet
+        setEmail(user.email);
+      } else if (passwordChanged) {
+        setSuccessMessage('Password updated successfully.');
+        setTimeout(() => navigate(-1), 1500);
+        return;
+      } else {
+        navigate(-1);
+        return;
+      }
     } catch (error) {
       console.error('Error saving profile:', error);
       alert('Failed to save profile: ' + error.message);
@@ -303,6 +327,13 @@ const EditProfile = () => {
           {/* Account Settings */}
           <div style={styles.formSection}>
             <h3 style={styles.sectionTitle}>Account Settings</h3>
+
+            {successMessage && (
+              <div style={styles.successMessage}>
+                <CheckIcon />
+                <span>{successMessage}</span>
+              </div>
+            )}
 
             <div style={styles.fieldGroup}>
               <label style={styles.label}>Email Address</label>
@@ -555,6 +586,19 @@ const styles = {
     fontSize: '12px',
     color: '#dc2626',
     marginTop: '6px',
+  },
+  successMessage: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    padding: '14px 16px',
+    backgroundColor: '#ecfdf5',
+    border: '1px solid #a7f3d0',
+    borderRadius: '10px',
+    marginBottom: '20px',
+    color: '#059669',
+    fontSize: '14px',
+    fontWeight: '500',
   },
 };
 
