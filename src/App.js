@@ -163,6 +163,7 @@ function AppContent() {
   const { isOffline } = useOffline();
   const location = useLocation();
   const navigate = useNavigate();
+  const [toast, setToast] = useState(null);
 
   // Check for signup confirmation in URL hash and redirect to email-confirmed page
   useEffect(() => {
@@ -178,7 +179,25 @@ function AppContent() {
       window.history.replaceState(null, '', window.location.pathname);
       navigate('/reset-password', { replace: true });
     }
-  }, [location.pathname, navigate]);
+    // Check for email change confirmation
+    if (hash && hash.includes('type=email_change')) {
+      // Clear the hash
+      window.history.replaceState(null, '', window.location.pathname);
+      // Show success toast
+      setToast({ type: 'success', message: 'Email address updated successfully!' });
+      // Auto-hide after 4 seconds
+      setTimeout(() => setToast(null), 4000);
+      // Sync email to users table and refresh profile
+      const syncEmail = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('users').update({ email: user.email }).eq('id', user.id);
+        }
+        refreshProfile();
+      };
+      syncEmail();
+    }
+  }, [location.pathname, navigate, refreshProfile]);
 
   // Handle deep links - when app opens from "Open in App" button, go to login
   useEffect(() => {
@@ -319,6 +338,33 @@ function AppContent() {
 
   return (
     <div style={{ overflow: 'hidden', height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column' }}>
+      {/* Toast Notification */}
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          top: 'calc(20px + env(safe-area-inset-top, 0px))',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 9999,
+          backgroundColor: toast.type === 'success' ? '#059669' : '#dc2626',
+          color: '#ffffff',
+          padding: '14px 24px',
+          borderRadius: '12px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          fontSize: '15px',
+          fontWeight: '500',
+          maxWidth: '90%',
+        }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+            <polyline points="22 4 12 14.01 9 11.01" />
+          </svg>
+          {toast.message}
+        </div>
+      )}
       <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
         <Routes>
           {/* Public Routes - Only accessible when NOT logged in */}
