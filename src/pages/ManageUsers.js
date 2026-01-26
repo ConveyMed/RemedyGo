@@ -68,6 +68,8 @@ const ManageUsers = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [saving, setSaving] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Edit form state
   const [editFirstName, setEditFirstName] = useState('');
@@ -136,6 +138,7 @@ const ManageUsers = () => {
 
   const closeUserDetail = () => {
     setSelectedUser(null);
+    setShowDeleteConfirm(false);
   };
 
   const handleSaveUser = async () => {
@@ -172,6 +175,34 @@ const ManageUsers = () => {
       alert('Failed to update user');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
+
+    setDeleting(true);
+    try {
+      console.log('Attempting to delete user:', selectedUser.id, selectedUser.email);
+
+      const { data, error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', selectedUser.id)
+        .select();
+
+      console.log('Delete response:', { data, error });
+
+      if (error) throw error;
+
+      // Remove from local state
+      setUsers(prev => prev.filter(u => u.id !== selectedUser.id));
+      closeUserDetail();
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      alert('Failed to delete user: ' + (error.message || 'Unknown error'));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -383,152 +414,196 @@ const ManageUsers = () => {
           <div style={styles.modal} onClick={e => e.stopPropagation()}>
             {/* Modal Header */}
             <div style={styles.modalHeader}>
-              <h2 style={styles.modalTitle}>Edit User</h2>
+              <h2 style={styles.modalTitle}>{showDeleteConfirm ? 'Delete User' : 'Edit User'}</h2>
               <button style={styles.closeButton} onClick={closeUserDetail}>
                 <CloseIcon />
               </button>
             </div>
 
-            {/* User Profile Section */}
-            <div style={styles.profileSection}>
-              <div style={styles.profileAvatar}>
-                {selectedUser.profile_image_url ? (
-                  <img src={selectedUser.profile_image_url} alt="" style={styles.profileImage} />
-                ) : (
-                  <div style={styles.profilePlaceholder}>
-                    <UserIcon />
+            {showDeleteConfirm ? (
+              <>
+                {/* Delete Confirmation View */}
+                <div style={styles.deleteConfirmSection}>
+                  <div style={styles.deleteIconWrapper}>
+                    <span style={styles.deleteIconLarge}><TrashIcon /></span>
                   </div>
-                )}
-              </div>
-              <p style={styles.profileEmail}>{selectedUser.email}</p>
-            </div>
-
-            {/* Edit Form */}
-            <div style={styles.detailsSection}>
-              <div style={styles.formRow}>
-                <div style={styles.formGroup}>
-                  <label style={styles.formLabel}>First Name</label>
-                  <input
-                    type="text"
-                    value={editFirstName}
-                    onChange={(e) => setEditFirstName(e.target.value)}
-                    style={styles.formInput}
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.formLabel}>Last Name</label>
-                  <input
-                    type="text"
-                    value={editLastName}
-                    onChange={(e) => setEditLastName(e.target.value)}
-                    style={styles.formInput}
-                  />
-                </div>
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.formLabel}>Job Title</label>
-                <input
-                  type="text"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  style={styles.formInput}
-                  placeholder="e.g. Software Engineer"
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.formLabel}>Phone</label>
-                <input
-                  type="tel"
-                  value={editPhone}
-                  onChange={(e) => setEditPhone(e.target.value)}
-                  style={styles.formInput}
-                  placeholder="(555) 555-5555"
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.formLabel}>Role</label>
-                <div style={styles.roleSelector}>
-                  {['member', 'admin'].map(role => (
-                    <button
-                      key={role}
-                      style={{
-                        ...styles.roleOption,
-                        ...(editRole === role ? styles.roleOptionActive : {}),
-                      }}
-                      onClick={() => setEditRole(role)}
-                    >
-                      {role === 'admin' && <ShieldIcon />}
-                      <span style={{ textTransform: 'capitalize' }}>{role}</span>
-                      {editRole === role && <CheckIcon />}
-                    </button>
-                  ))}
-                </div>
-                <p style={styles.roleHint}>
-                  {editRole === 'admin' && 'Full access to manage users, posts, and settings'}
-                  {editRole === 'member' && 'Can view content and interact with posts'}
-                </p>
-              </div>
-
-              {/* Organization Assignment */}
-              {organizations.length > 0 && (
-                <div style={styles.formSection}>
-                  <label style={styles.label}>Organization</label>
-                  <select
-                    style={styles.select}
-                    value={editOrganization}
-                    onChange={(e) => setEditOrganization(e.target.value)}
-                  >
-                    <option value="">-- Select Organization --</option>
-                    {organizations.map(org => (
-                      <option key={org.id} value={org.id}>{org.name} ({org.code})</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Full Line Role */}
-              {editRole !== 'admin' && (
-                <div style={styles.formSection}>
-                  <label style={styles.checkboxLabel}>
-                    <input
-                      type="checkbox"
-                      checked={editIsFullLine}
-                      onChange={(e) => setEditIsFullLine(e.target.checked)}
-                      style={styles.checkbox}
-                    />
-                    <span>Full Line Access</span>
-                  </label>
-                  <p style={styles.roleHint}>
-                    Full Line users can view both organizations but cannot create content
+                  <h3 style={styles.deleteConfirmTitle}>
+                    Delete {selectedUser.first_name} {selectedUser.last_name}?
+                  </h3>
+                  <p style={styles.deleteConfirmText}>
+                    This will permanently remove this user and all their data. This action cannot be undone.
                   </p>
                 </div>
-              )}
+                <div style={styles.modalActions}>
+                  <button
+                    style={styles.cancelButton}
+                    onClick={() => setShowDeleteConfirm(false)}
+                    disabled={deleting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    style={styles.deleteConfirmButton}
+                    onClick={handleDeleteUser}
+                    disabled={deleting}
+                  >
+                    {deleting ? 'Deleting...' : 'Yes, Delete User'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* User Profile Section */}
+                <div style={styles.profileSection}>
+                  <div style={styles.profileAvatar}>
+                    {selectedUser.profile_image_url ? (
+                      <img src={selectedUser.profile_image_url} alt="" style={styles.profileImage} />
+                    ) : (
+                      <div style={styles.profilePlaceholder}>
+                        <UserIcon />
+                      </div>
+                    )}
+                  </div>
+                  <p style={styles.profileEmail}>{selectedUser.email}</p>
+                </div>
 
-              <div style={styles.joinedInfo}>
-                Joined {getTimeAgo(selectedUser.created_at)}
-              </div>
-            </div>
+                {/* Edit Form */}
+                <div style={styles.detailsSection}>
+                  <div style={styles.formRow}>
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel}>First Name</label>
+                      <input
+                        type="text"
+                        value={editFirstName}
+                        onChange={(e) => setEditFirstName(e.target.value)}
+                        style={styles.formInput}
+                      />
+                    </div>
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel}>Last Name</label>
+                      <input
+                        type="text"
+                        value={editLastName}
+                        onChange={(e) => setEditLastName(e.target.value)}
+                        style={styles.formInput}
+                      />
+                    </div>
+                  </div>
 
-            {/* Action Buttons */}
-            <div style={styles.modalActions}>
-              <button
-                style={styles.cancelButton}
-                onClick={closeUserDetail}
-                disabled={saving}
-              >
-                Cancel
-              </button>
-              <button
-                style={styles.saveButton}
-                onClick={handleSaveUser}
-                disabled={saving}
-              >
-                {saving ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
+                  <div style={styles.formGroup}>
+                    <label style={styles.formLabel}>Job Title</label>
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      style={styles.formInput}
+                      placeholder="e.g. Software Engineer"
+                    />
+                  </div>
+
+                  <div style={styles.formGroup}>
+                    <label style={styles.formLabel}>Phone</label>
+                    <input
+                      type="tel"
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      style={styles.formInput}
+                      placeholder="(555) 555-5555"
+                    />
+                  </div>
+
+                  <div style={styles.formGroup}>
+                    <label style={styles.formLabel}>Role</label>
+                    <div style={styles.roleSelector}>
+                      {['member', 'admin'].map(role => (
+                        <button
+                          key={role}
+                          style={{
+                            ...styles.roleOption,
+                            ...(editRole === role ? styles.roleOptionActive : {}),
+                          }}
+                          onClick={() => setEditRole(role)}
+                        >
+                          {role === 'admin' && <ShieldIcon />}
+                          <span style={{ textTransform: 'capitalize' }}>{role}</span>
+                          {editRole === role && <CheckIcon />}
+                        </button>
+                      ))}
+                    </div>
+                    <p style={styles.roleHint}>
+                      {editRole === 'admin' && 'Full access to manage users, posts, and settings'}
+                      {editRole === 'member' && 'Can view content and interact with posts'}
+                    </p>
+                  </div>
+
+                  {/* Organization Assignment */}
+                  {organizations.length > 0 && (
+                    <div style={styles.formSection}>
+                      <label style={styles.label}>Organization</label>
+                      <select
+                        style={styles.select}
+                        value={editOrganization}
+                        onChange={(e) => setEditOrganization(e.target.value)}
+                      >
+                        <option value="">-- Select Organization --</option>
+                        {organizations.map(org => (
+                          <option key={org.id} value={org.id}>{org.name} ({org.code})</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Full Line Role */}
+                  {editRole !== 'admin' && (
+                    <div style={styles.formSection}>
+                      <label style={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          checked={editIsFullLine}
+                          onChange={(e) => setEditIsFullLine(e.target.checked)}
+                          style={styles.checkbox}
+                        />
+                        <span>Full Line Access</span>
+                      </label>
+                      <p style={styles.roleHint}>
+                        Full Line users can view both organizations but cannot create content
+                      </p>
+                    </div>
+                  )}
+
+                  <div style={styles.joinedInfo}>
+                    Joined {getTimeAgo(selectedUser.created_at)}
+                  </div>
+
+                  {/* Delete User Button */}
+                  <button
+                    style={styles.deleteUserButton}
+                    onClick={() => setShowDeleteConfirm(true)}
+                  >
+                    <TrashIcon />
+                    <span>Delete User</span>
+                  </button>
+                </div>
+
+                {/* Action Buttons */}
+                <div style={styles.modalActions}>
+                  <button
+                    style={styles.cancelButton}
+                    onClick={closeUserDetail}
+                    disabled={saving}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    style={styles.saveButton}
+                    onClick={handleSaveUser}
+                    disabled={saving}
+                  >
+                    {saving ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -1083,6 +1158,69 @@ const styles = {
     backgroundColor: '#eff6ff',
     borderColor: 'var(--primary-blue)',
     color: 'var(--primary-blue)',
+  },
+  // Delete user styles
+  deleteUserButton: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    width: '100%',
+    padding: '12px',
+    marginTop: '20px',
+    backgroundColor: '#fef2f2',
+    color: '#dc2626',
+    border: '1px solid #fecaca',
+    borderRadius: '10px',
+    fontSize: '14px',
+    fontWeight: '500',
+    cursor: 'pointer',
+  },
+  deleteConfirmSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: '40px 20px',
+    textAlign: 'center',
+  },
+  deleteIconWrapper: {
+    width: '64px',
+    height: '64px',
+    borderRadius: '50%',
+    backgroundColor: '#fef2f2',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#dc2626',
+    marginBottom: '16px',
+  },
+  deleteIconLarge: {
+    display: 'flex',
+    transform: 'scale(2)',
+  },
+  deleteConfirmTitle: {
+    fontSize: '18px',
+    fontWeight: '600',
+    color: 'var(--text-dark)',
+    margin: '0 0 8px 0',
+  },
+  deleteConfirmText: {
+    fontSize: '14px',
+    color: 'var(--text-muted)',
+    margin: 0,
+    lineHeight: '1.5',
+    maxWidth: '280px',
+  },
+  deleteConfirmButton: {
+    flex: 1,
+    padding: '12px 20px',
+    backgroundColor: '#dc2626',
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '10px',
+    fontSize: '15px',
+    fontWeight: '600',
+    cursor: 'pointer',
   },
 };
 

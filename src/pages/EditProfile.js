@@ -37,6 +37,11 @@ const EditProfile = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
+  // Email & Password
+  const [email, setEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
   // Load existing profile data
   useEffect(() => {
     if (userProfile) {
@@ -47,7 +52,10 @@ const EditProfile = () => {
       setBio(userProfile.bio || '');
       setImagePreview(userProfile.profile_image_url || null);
     }
-  }, [userProfile]);
+    if (user) {
+      setEmail(user.email || '');
+    }
+  }, [userProfile, user]);
 
   // Track changes
   useEffect(() => {
@@ -59,10 +67,12 @@ const EditProfile = () => {
       title !== (userProfile.title || '') ||
       phone !== (userProfile.phone || '') ||
       bio !== (userProfile.bio || '') ||
-      newImage !== null;
+      newImage !== null ||
+      email !== (user?.email || '') ||
+      newPassword.length > 0;
 
     setHasChanges(changed);
-  }, [firstName, lastName, title, phone, bio, newImage, userProfile]);
+  }, [firstName, lastName, title, phone, bio, newImage, userProfile, email, newPassword, user]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -84,6 +94,18 @@ const EditProfile = () => {
     if (!firstName.trim() || !lastName.trim()) {
       alert('First name and last name are required');
       return;
+    }
+
+    // Validate password if changing
+    if (newPassword) {
+      if (newPassword.length < 6) {
+        alert('Password must be at least 6 characters');
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        alert('Passwords do not match');
+        return;
+      }
     }
 
     setIsSaving(true);
@@ -113,6 +135,22 @@ const EditProfile = () => {
         imageUrl = publicUrl;
       }
 
+      // Update email if changed
+      if (email !== user.email) {
+        const { error: emailError } = await supabase.auth.updateUser({
+          email: email.trim(),
+        });
+        if (emailError) throw emailError;
+      }
+
+      // Update password if provided
+      if (newPassword) {
+        const { error: passwordError } = await supabase.auth.updateUser({
+          password: newPassword,
+        });
+        if (passwordError) throw passwordError;
+      }
+
       // Update profile
       const { error } = await supabase
         .from('users')
@@ -123,10 +161,15 @@ const EditProfile = () => {
           phone: phone.trim() || null,
           bio: bio.trim() || null,
           profile_image_url: imageUrl,
+          email: email.trim(), // Also update email in users table
         })
         .eq('id', user.id);
 
       if (error) throw error;
+
+      // Clear password fields
+      setNewPassword('');
+      setConfirmPassword('');
 
       // Refresh profile in context
       await refreshProfile();
@@ -257,15 +300,53 @@ const EditProfile = () => {
             </div>
           </div>
 
-          {/* Email (read-only) */}
-          <div style={styles.infoSection}>
-            <div style={styles.infoRow}>
-              <span style={styles.infoLabel}>Email</span>
-              <span style={styles.infoValue}>{user?.email}</span>
+          {/* Account Settings */}
+          <div style={styles.formSection}>
+            <h3 style={styles.sectionTitle}>Account Settings</h3>
+
+            <div style={styles.fieldGroup}>
+              <label style={styles.label}>Email Address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={styles.input}
+                placeholder="Enter email address"
+                disabled={isSaving}
+              />
             </div>
-            <p style={styles.infoHint}>
-              Contact your administrator to change your email address.
-            </p>
+
+            <div style={styles.fieldGroup}>
+              <label style={styles.label}>New Password</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                style={styles.input}
+                placeholder="Leave blank to keep current"
+                disabled={isSaving}
+              />
+            </div>
+
+            {newPassword && (
+              <div style={styles.fieldGroup}>
+                <label style={styles.label}>Confirm Password</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  style={{
+                    ...styles.input,
+                    borderColor: confirmPassword && newPassword !== confirmPassword ? '#dc2626' : '#e2e8f0',
+                  }}
+                  placeholder="Confirm new password"
+                  disabled={isSaving}
+                />
+                {confirmPassword && newPassword !== confirmPassword && (
+                  <p style={styles.errorHint}>Passwords do not match</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Bottom padding */}
@@ -463,6 +544,17 @@ const styles = {
     color: 'var(--text-light)',
     marginTop: '12px',
     lineHeight: '1.4',
+  },
+  sectionTitle: {
+    fontSize: '16px',
+    fontWeight: '600',
+    color: 'var(--text-dark)',
+    margin: '0 0 16px 0',
+  },
+  errorHint: {
+    fontSize: '12px',
+    color: '#dc2626',
+    marginTop: '6px',
   },
 };
 
