@@ -313,8 +313,15 @@ const CategoryModal = ({ isOpen, onClose, onSave, category, title }) => {
   );
 };
 
+// Folder/Category Icon
+const FolderIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+  </svg>
+);
+
 // Content Item Modal (single category + current org)
-const ContentItemModal = ({ isOpen, onClose, onSave, item, title, type, categoryId, selectedOrgId }) => {
+const ContentItemModal = ({ isOpen, onClose, onSave, onCategoryChange, item, title, type, categoryId, selectedOrgId, categories = [], itemCategories = [] }) => {
   const modalRef = React.useRef(null);
   const scrollYRef = React.useRef(0);
   const [formData, setFormData] = useState({
@@ -324,6 +331,8 @@ const ContentItemModal = ({ isOpen, onClose, onSave, item, title, type, category
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState(categoryId);
+  const [additionalCategories, setAdditionalCategories] = useState([]);
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -363,8 +372,12 @@ const ContentItemModal = ({ isOpen, onClose, onSave, item, title, type, category
         is_downloadable: item?.is_downloadable !== false,
         use_company_logo: item?.use_company_logo || false,
       });
+      setSelectedCategoryId(categoryId);
+      // Initialize additional categories from itemCategories (excluding current category)
+      const otherCats = itemCategories.filter(catId => catId !== categoryId);
+      setAdditionalCategories(otherCats);
     }
-  }, [isOpen, item]);
+  }, [isOpen, item, categoryId, itemCategories]);
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -415,7 +428,9 @@ const ContentItemModal = ({ isOpen, onClose, onSave, item, title, type, category
     if (!formData.title.trim()) return;
     setSaving(true);
     try {
-      await onSave(formData, categoryId, selectedOrgId, item?.id);
+      // Combine primary category with additional categories
+      const allSelectedCategories = [selectedCategoryId, ...additionalCategories].filter(Boolean);
+      await onSave(formData, selectedCategoryId, selectedOrgId, item?.id, allSelectedCategories);
       onClose();
     } catch (err) {
       console.error('Error saving content:', err);
@@ -424,6 +439,18 @@ const ContentItemModal = ({ isOpen, onClose, onSave, item, title, type, category
       setSaving(false);
     }
   };
+
+  const toggleAdditionalCategory = (catId) => {
+    if (catId === selectedCategoryId) return; // Can't add primary category as additional
+    setAdditionalCategories(prev =>
+      prev.includes(catId)
+        ? prev.filter(id => id !== catId)
+        : [...prev, catId]
+    );
+  };
+
+  const currentCategory = categories.find(c => c.id === selectedCategoryId);
+  const availableCategories = categories.filter(c => c.id !== selectedCategoryId);
 
   if (!isOpen) return null;
 
@@ -434,6 +461,56 @@ const ContentItemModal = ({ isOpen, onClose, onSave, item, title, type, category
           <CloseIcon />
         </button>
         <h2 style={styles.modalTitle}>{title}</h2>
+
+        {/* Category Management - only show when editing existing item */}
+        {item && categories.length > 0 && (
+          <div style={styles.categorySection}>
+            <div style={styles.categorySectionHeader}>
+              <FolderIcon />
+              <span style={styles.categorySectionTitle}>Category</span>
+            </div>
+
+            {/* Current/Primary Category */}
+            <div style={styles.formGroup}>
+              <label style={styles.labelSmall}>Primary Category</label>
+              <select
+                value={selectedCategoryId || ''}
+                onChange={(e) => setSelectedCategoryId(e.target.value)}
+                style={styles.select}
+              >
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.title}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Additional Categories */}
+            {availableCategories.length > 0 && (
+              <div style={styles.formGroup}>
+                <label style={styles.labelSmall}>Also show in:</label>
+                <div style={styles.categoryChips}>
+                  {availableCategories.map(cat => {
+                    const isSelected = additionalCategories.includes(cat.id);
+                    return (
+                      <button
+                        key={cat.id}
+                        style={{
+                          ...styles.categoryChip,
+                          ...(isSelected ? styles.categoryChipSelected : {}),
+                        }}
+                        onClick={() => toggleAdditionalCategory(cat.id)}
+                        type="button"
+                      >
+                        {isSelected && <span style={styles.checkMark}>+</span>}
+                        {cat.title}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div style={styles.formGroup}>
           <label style={styles.label}>Title *</label>
@@ -874,6 +951,7 @@ const ManageContentScreen = ({ type, title, backPath }) => {
   // Content and assignments
   const [contentItems, setContentItems] = useState([]);
   const [orgAssignments, setOrgAssignments] = useState([]);
+  const [itemCategoryLinks, setItemCategoryLinks] = useState([]); // content_item_categories junction
   const [loading, setLoading] = useState(true);
 
   // Selected org for toggle view
@@ -897,23 +975,26 @@ const ManageContentScreen = ({ type, title, backPath }) => {
     try {
       setLoading(true);
 
-      // Fetch ALL organizations, categories (with org_id), content items, and assignments
-      const [orgsResult, categoriesResult, itemsResult, assignmentsResult] = await Promise.all([
+      // Fetch ALL organizations, categories (with org_id), content items, assignments, and item-category links
+      const [orgsResult, categoriesResult, itemsResult, assignmentsResult, itemCategoriesResult] = await Promise.all([
         supabase.from('organizations').select('*').order('code'),
         supabase.from('content_categories').select('*').eq('type', type).eq('is_active', true).order('sort_order'),
         supabase.from('content_items').select('*').eq('is_active', true).order('sort_order'),
-        supabase.from('content_item_assignments').select('*')
+        supabase.from('content_item_assignments').select('*'),
+        supabase.from('content_item_categories').select('*')
       ]);
 
       if (orgsResult.error) throw orgsResult.error;
       if (categoriesResult.error) throw categoriesResult.error;
       if (itemsResult.error) throw itemsResult.error;
       if (assignmentsResult.error) throw assignmentsResult.error;
+      // Don't throw on itemCategories error - table might not exist
 
       setAllOrganizations(orgsResult.data || []);
       setAllCategories(categoriesResult.data || []);
       setContentItems(itemsResult.data || []);
       setOrgAssignments(assignmentsResult.data || []);
+      setItemCategoryLinks(itemCategoriesResult.data || []);
     } catch (error) {
       console.error('Error fetching content:', error);
     } finally {
@@ -1084,7 +1165,7 @@ const ManageContentScreen = ({ type, title, backPath }) => {
   };
 
   // Content handlers - single category + current org
-  const handleSaveContent = async (formData, categoryId, orgId, existingItemId) => {
+  const handleSaveContent = async (formData, categoryId, orgId, existingItemId, allSelectedCategories = []) => {
     try {
       let itemId = existingItemId;
 
@@ -1108,6 +1189,37 @@ const ManageContentScreen = ({ type, title, backPath }) => {
           .eq('id', existingItemId);
 
         if (error) throw error;
+
+        // Update category assignments if categories were changed
+        if (allSelectedCategories.length > 0) {
+          // Delete existing category links for this item
+          await supabase
+            .from('content_item_categories')
+            .delete()
+            .eq('content_id', existingItemId);
+
+          // Insert new category links
+          const categoryLinks = allSelectedCategories.map((catId, index) => ({
+            content_id: existingItemId,
+            category_id: catId,
+            sort_order: index,
+          }));
+
+          const { error: linkError } = await supabase
+            .from('content_item_categories')
+            .insert(categoryLinks);
+
+          if (linkError) console.error('Error updating category links:', linkError);
+
+          // Also update the assignment for org if primary category changed
+          if (categoryId !== allSelectedCategories[0]) {
+            await supabase
+              .from('content_item_assignments')
+              .update({ category_id: allSelectedCategories[0] })
+              .eq('content_item_id', existingItemId)
+              .eq('organization_id', orgId);
+          }
+        }
       } else {
         // Create new item
         const { data: newItem, error } = await supabase
@@ -1142,6 +1254,17 @@ const ManageContentScreen = ({ type, title, backPath }) => {
           });
 
         if (assignmentError) throw assignmentError;
+
+        // Also create category link if provided
+        if (categoryId) {
+          await supabase
+            .from('content_item_categories')
+            .insert({
+              content_id: itemId,
+              category_id: categoryId,
+              sort_order: 0,
+            });
+        }
       }
 
       await fetchContent();
@@ -1396,6 +1519,8 @@ const ManageContentScreen = ({ type, title, backPath }) => {
         type={type}
         categoryId={contentModal.categoryId}
         selectedOrgId={contentModal.orgId}
+        categories={categories}
+        itemCategories={contentModal.item ? itemCategoryLinks.filter(link => link.content_id === contentModal.item.id).map(link => link.category_id) : []}
       />
 
       <MultiCategoryContentModal
@@ -1491,6 +1616,15 @@ const styles = {
   closeBtn: { position: 'absolute', top: '20px', right: '20px', width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#f1f5f9', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', transition: 'all 0.2s' },
   modalTitle: { fontSize: '22px', fontWeight: '700', color: 'var(--text-dark)', margin: '0 0 24px 0', paddingRight: '48px' },
   formGroup: { marginBottom: '20px' },
+  categorySection: { backgroundColor: '#f8fafc', borderRadius: '14px', padding: '16px', marginBottom: '20px', border: '1px solid #e2e8f0' },
+  categorySectionHeader: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: 'var(--primary-blue)' },
+  categorySectionTitle: { fontSize: '14px', fontWeight: '600', color: 'var(--primary-blue)' },
+  labelSmall: { display: 'block', fontSize: '12px', fontWeight: '500', color: '#64748b', marginBottom: '6px' },
+  select: { width: '100%', padding: '12px 14px', fontSize: '15px', border: '2px solid #e2e8f0', borderRadius: '10px', outline: 'none', boxSizing: 'border-box', backgroundColor: '#ffffff', cursor: 'pointer' },
+  categoryChips: { display: 'flex', flexWrap: 'wrap', gap: '8px' },
+  categoryChip: { display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '8px 14px', fontSize: '13px', fontWeight: '500', color: '#64748b', backgroundColor: '#ffffff', border: '2px solid #e2e8f0', borderRadius: '20px', cursor: 'pointer', transition: 'all 0.2s' },
+  categoryChipSelected: { backgroundColor: '#dbeafe', borderColor: 'var(--primary-blue)', color: 'var(--primary-blue)' },
+  checkMark: { fontWeight: '600' },
   label: { display: 'block', fontSize: '13px', fontWeight: '600', color: '#64748b', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' },
   input: { width: '100%', padding: '14px 16px', fontSize: '16px', border: '2px solid #e2e8f0', borderRadius: '12px', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.2s' },
   textarea: { width: '100%', padding: '14px 16px', fontSize: '16px', border: '2px solid #e2e8f0', borderRadius: '12px', outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box', transition: 'border-color 0.2s' },

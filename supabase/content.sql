@@ -15,11 +15,33 @@ CREATE TABLE IF NOT EXISTS content_categories (
   type VARCHAR(20) NOT NULL CHECK (type IN ('library', 'training')),
   title VARCHAR(255) NOT NULL,
   description TEXT,
+  organization_id UUID,  -- Which org this category belongs to (NULL = shared)
   sort_order INTEGER DEFAULT 0,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Add organization_id column if it doesn't exist (for existing tables)
+ALTER TABLE content_categories ADD COLUMN IF NOT EXISTS organization_id UUID;
+
+-- Add foreign key constraint for organization_id
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'content_categories_organization_id_fkey'
+  ) THEN
+    ALTER TABLE content_categories
+    ADD CONSTRAINT content_categories_organization_id_fkey
+    FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE SET NULL;
+  END IF;
+EXCEPTION WHEN undefined_table THEN
+  NULL;
+END $$;
+
+-- Index for organization filtering
+CREATE INDEX IF NOT EXISTS idx_content_categories_org ON content_categories(organization_id);
 
 -- Content items table
 CREATE TABLE IF NOT EXISTS content_items (

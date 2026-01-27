@@ -64,8 +64,8 @@ const Directory = () => {
       const query = searchQuery.toLowerCase();
       setFilteredUsers(users.filter(user => {
         const fullName = `${user.first_name || ''} ${user.last_name || ''}`.toLowerCase();
-        const title = (user.title || '').toLowerCase();
-        return fullName.includes(query) || title.includes(query);
+        const distributor = (user.distributor || '').toLowerCase();
+        return fullName.includes(query) || distributor.includes(query);
       }));
     }
   }, [searchQuery, users]);
@@ -74,7 +74,7 @@ const Directory = () => {
     try {
       let query = supabase
         .from('users')
-        .select('id, first_name, last_name, title, phone, email, profile_image_url, bio, is_admin')
+        .select('id, first_name, last_name, distributor, phone, email, profile_image_url, bio, is_admin')
         .order('first_name', { ascending: true });
 
       // If directory is admins only, filter
@@ -123,7 +123,7 @@ const Directory = () => {
             </div>
             <input
               type="text"
-              placeholder="Search by name or title..."
+              placeholder="Search by name or distributor..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={styles.searchInput}
@@ -167,7 +167,7 @@ const Directory = () => {
                     <span style={styles.userName}>
                       {user.first_name} {user.last_name}
                     </span>
-                    <span style={styles.userTitle}>{user.title || 'Team Member'}</span>
+                    <span style={styles.userTitle}>{user.distributor || 'Team Member'}</span>
                     {user.email && <span style={styles.userEmail}>{user.email}</span>}
                   </div>
                 </button>
@@ -204,8 +204,8 @@ const Directory = () => {
               <h2 style={styles.profileName}>
                 {selectedUser.first_name} {selectedUser.last_name}
               </h2>
-              {selectedUser.title && (
-                <span style={styles.profileTitle}>{selectedUser.title}</span>
+              {selectedUser.distributor && (
+                <span style={styles.profileTitle}>{selectedUser.distributor}</span>
               )}
             </div>
 
@@ -229,12 +229,12 @@ const Directory = () => {
                 </a>
               )}
 
-              {selectedUser.title && (
+              {selectedUser.distributor && (
                 <div style={styles.contactRow}>
                   <div style={styles.contactIcon}>
                     <BriefcaseIcon />
                   </div>
-                  <span style={styles.contactText}>{selectedUser.title}</span>
+                  <span style={styles.contactText}>{selectedUser.distributor}</span>
                 </div>
               )}
             </div>

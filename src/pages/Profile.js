@@ -209,8 +209,8 @@ const Profile = () => {
               <h2 style={styles.profileName}>
                 {userProfile?.first_name} {userProfile?.last_name}
               </h2>
-              {userProfile?.title && (
-                <p style={styles.profileTitle}>{userProfile.title}</p>
+              {userProfile?.distributor && (
+                <p style={styles.profileTitle}>{userProfile.distributor}</p>
               )}
               <p style={styles.profileEmail}>{user?.email}</p>
             </div>

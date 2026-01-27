@@ -287,7 +287,7 @@ const Post = ({ post, currentUserId, isAdmin, onEditPost, organizations }) => {
         )}
         <div style={styles.authorInfo}>
           <span style={styles.authorName}>{post.author.name}</span>
-          <span style={styles.authorTitle}>{post.author.title}</span>
+          <span style={styles.authorTitle}>{post.author.distributor}</span>
         </div>
         {/* Organization Badge */}
         {post.is_all_orgs ? (
@@ -2326,7 +2326,7 @@ const Home = () => {
                         )}
                         <div style={styles.authorInfo}>
                           <span style={styles.authorName}>{post.author.name}</span>
-                          <span style={styles.authorTitle}>{post.author.title}</span>
+                          <span style={styles.authorTitle}>{post.author.distributor}</span>
                         </div>
                         <button
                           style={styles.editScheduledBtn}

@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
   last_name TEXT,
   phone TEXT,
   bio TEXT,
-  title TEXT,
+  distributor TEXT,
   profile_image_url TEXT,
   profile_complete BOOLEAN DEFAULT false,
   is_admin BOOLEAN DEFAULT false,

@@ -36,7 +36,7 @@ const EditProfile = () => {
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [title, setTitle] = useState('');
+  const [distributor, setDistributor] = useState('');
   const [phone, setPhone] = useState('');
   const [bio, setBio] = useState('');
   const [imagePreview, setImagePreview] = useState(null);
@@ -55,7 +55,7 @@ const EditProfile = () => {
     if (userProfile) {
       setFirstName(userProfile.first_name || '');
       setLastName(userProfile.last_name || '');
-      setTitle(userProfile.title || '');
+      setDistributor(userProfile.distributor || '');
       setPhone(userProfile.phone || '');
       setBio(userProfile.bio || '');
       setImagePreview(userProfile.profile_image_url || null);
@@ -72,7 +72,7 @@ const EditProfile = () => {
     const changed =
       firstName !== (userProfile.first_name || '') ||
       lastName !== (userProfile.last_name || '') ||
-      title !== (userProfile.title || '') ||
+      distributor !== (userProfile.distributor || '') ||
       phone !== (userProfile.phone || '') ||
       bio !== (userProfile.bio || '') ||
       newImage !== null ||
@@ -80,7 +80,7 @@ const EditProfile = () => {
       newPassword.length > 0;
 
     setHasChanges(changed);
-  }, [firstName, lastName, title, phone, bio, newImage, userProfile, email, newPassword, user]);
+  }, [firstName, lastName, distributor, phone, bio, newImage, userProfile, email, newPassword, user]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -168,7 +168,7 @@ const EditProfile = () => {
         .update({
           first_name: firstName.trim(),
           last_name: lastName.trim(),
-          title: title.trim() || null,
+          distributor: distributor.trim() || null,
           phone: phone.trim() || null,
           bio: bio.trim() || null,
           profile_image_url: imageUrl,
@@ -288,13 +288,13 @@ const EditProfile = () => {
             </div>
 
             <div style={styles.fieldGroup}>
-              <label style={styles.label}>Job Title</label>
+              <label style={styles.label}>Distributor</label>
               <input
                 type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                value={distributor}
+                onChange={(e) => setDistributor(e.target.value)}
                 style={styles.input}
-                placeholder="e.g. Software Engineer"
+                placeholder="e.g. ABC Distribution"
                 disabled={isSaving}
               />
             </div>

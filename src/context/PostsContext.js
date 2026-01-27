@@ -254,7 +254,7 @@ export const PostsProvider = ({ children }) => {
       // Fetch users and comments in parallel
       const [usersResult, commentsResult] = await Promise.all([
         userIds.length > 0
-          ? supabase.from('users').select('id, first_name, last_name, title, profile_image_url').in('id', userIds)
+          ? supabase.from('users').select('id, first_name, last_name, distributor, profile_image_url').in('id', userIds)
           : Promise.resolve({ data: [] }),
         postIds.length > 0
           ? supabase.from('post_comments').select('*').in('post_id', postIds).order('created_at', { ascending: true })
@@ -315,7 +315,7 @@ export const PostsProvider = ({ children }) => {
           id: post.id,
           author: {
             name: author ? `${author.first_name || ''} ${author.last_name || ''}`.trim() : 'Unknown',
-            title: author?.title || '',
+            distributor: author?.distributor || '',
             avatar: author?.profile_image_url || null,
           },
           content: post.content || '',
@@ -371,7 +371,7 @@ export const PostsProvider = ({ children }) => {
       if (userIds.length > 0) {
         const { data: usersData } = await supabase
           .from('users')
-          .select('id, first_name, last_name, title, profile_image_url')
+          .select('id, first_name, last_name, distributor, profile_image_url')
           .in('id', userIds);
 
         usersMap = (usersData || []).reduce((acc, u) => {
@@ -386,7 +386,7 @@ export const PostsProvider = ({ children }) => {
           id: post.id,
           author: {
             name: author ? `${author.first_name || ''} ${author.last_name || ''}`.trim() : 'Unknown',
-            title: author?.title || '',
+            distributor: author?.distributor || '',
             avatar: author?.profile_image_url || null,
           },
           content: post.content || '',
@@ -729,7 +729,7 @@ export const PostsProvider = ({ children }) => {
         id: data.id,
         author: {
           name: `${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim(),
-          title: userProfile?.title || '',
+          distributor: userProfile?.distributor || '',
           avatar: userProfile?.profile_image_url || null,
         },
         content,

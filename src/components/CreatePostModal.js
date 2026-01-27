@@ -391,8 +391,8 @@ const CreatePostModal = () => {
             <span style={styles.authorName}>
               {userProfile?.first_name} {userProfile?.last_name}
             </span>
-            {userProfile?.title && (
-              <span style={styles.authorTitle}>{userProfile.title}</span>
+            {userProfile?.distributor && (
+              <span style={styles.authorTitle}>{userProfile.distributor}</span>
             )}
           </div>
         </div>

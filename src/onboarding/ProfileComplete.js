@@ -13,7 +13,7 @@ function ProfileComplete({ onComplete }) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [ambiguousName, setAmbiguousName] = useState('');
-  const [title, setTitle] = useState('');
+  const [distributor, setDistributor] = useState('');
   const [phone, setPhone] = useState('');
   const [bio, setBio] = useState('');
   const [profileImage, setProfileImage] = useState(null);
@@ -42,7 +42,7 @@ function ProfileComplete({ onComplete }) {
         if (profile.first_name && profile.last_name) {
           setFullName(`${profile.first_name} ${profile.last_name}`);
         }
-        if (profile.title) setTitle(profile.title);
+        if (profile.distributor) setDistributor(profile.distributor);
         if (profile.phone) setPhone(profile.phone);
         if (profile.bio) setBio(profile.bio);
         if (profile.profile_image_url) setImagePreview(profile.profile_image_url);
@@ -207,7 +207,7 @@ function ProfileComplete({ onComplete }) {
       const updateData = {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
-        title: title.trim() || null,
+        distributor: distributor.trim() || null,
         phone: phone.trim() || null,
         bio: bio.trim() || null,
         profile_complete: true
@@ -392,7 +392,7 @@ function ProfileComplete({ onComplete }) {
         </div>
       )}
 
-      {/* Step 3: Title (Optional) */}
+      {/* Step 3: Distributor (Optional) */}
       {step === 'title' && (
         <div className="profile-step">
           <div className="profile-icon">
@@ -401,22 +401,22 @@ function ProfileComplete({ onComplete }) {
               <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
             </svg>
           </div>
-          <h1 className="profile-title">Your Role</h1>
-          <p className="profile-subtitle">What's your job title? <span style={{color: 'var(--text-light)'}}>(optional)</span></p>
+          <h1 className="profile-title">Your Distributor</h1>
+          <p className="profile-subtitle">Who is your distributor? <span style={{color: 'var(--text-light)'}}>(optional)</span></p>
 
           <input
             className="profile-input"
             type="text"
-            placeholder="e.g. Software Engineer"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g. ABC Distribution"
+            value={distributor}
+            onChange={(e) => setDistributor(e.target.value)}
             onKeyPress={(e) => handleKeyPress(e, handleTitleSubmit)}
             autoFocus
             autoCapitalize="words"
           />
 
           <button className="profile-primary-button" onClick={handleTitleSubmit}>
-            {title.trim() ? 'Continue' : 'Skip'}
+            {distributor.trim() ? 'Continue' : 'Skip'}
           </button>
 
           <button className="profile-back-button" onClick={handleBack}>Back</button>
@@ -509,10 +509,10 @@ function ProfileComplete({ onComplete }) {
                 <span className="profile-review-label">Email:</span>
                 <span className="profile-review-value">{user?.email}</span>
               </div>
-              {title && (
+              {distributor && (
                 <div className="profile-review-row">
-                  <span className="profile-review-label">Title:</span>
-                  <span className="profile-review-value">{title}</span>
+                  <span className="profile-review-label">Distributor:</span>
+                  <span className="profile-review-value">{distributor}</span>
                 </div>
               )}
               {phone && (

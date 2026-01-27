@@ -74,7 +74,7 @@ const ManageUsers = () => {
   // Edit form state
   const [editFirstName, setEditFirstName] = useState('');
   const [editLastName, setEditLastName] = useState('');
-  const [editTitle, setEditTitle] = useState('');
+  const [editDistributor, setEditDistributor] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editRole, setEditRole] = useState('member');
   const [editOrganization, setEditOrganization] = useState('');
@@ -95,8 +95,8 @@ const ManageUsers = () => {
       setFilteredUsers(users.filter(user => {
         const fullName = `${user.first_name || ''} ${user.last_name || ''}`.toLowerCase();
         const email = (user.email || '').toLowerCase();
-        const title = (user.title || '').toLowerCase();
-        return fullName.includes(query) || email.includes(query) || title.includes(query);
+        const distributor = (user.distributor || '').toLowerCase();
+        return fullName.includes(query) || email.includes(query) || distributor.includes(query);
       }));
     }
   }, [searchQuery, users]);
@@ -129,7 +129,7 @@ const ManageUsers = () => {
     setSelectedUser(user);
     setEditFirstName(user.first_name || '');
     setEditLastName(user.last_name || '');
-    setEditTitle(user.title || '');
+    setEditDistributor(user.distributor || '');
     setEditPhone(user.phone || '');
     setEditRole(user.is_admin || user.role === 'admin' ? 'admin' : 'member');
     setEditOrganization(user.organization_id || '');
@@ -149,7 +149,7 @@ const ManageUsers = () => {
       const updateData = {
         first_name: editFirstName.trim(),
         last_name: editLastName.trim(),
-        title: editTitle.trim() || null,
+        distributor: editDistributor.trim() || null,
         phone: editPhone.trim() || null,
         is_admin: editRole === 'admin',
         organization_id: editOrganization || null,
@@ -311,7 +311,7 @@ const ManageUsers = () => {
             </div>
             <input
               type="text"
-              placeholder="Search by name, email, or title..."
+              placeholder="Search by name, email, or distributor..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={styles.searchInput}
@@ -395,7 +395,7 @@ const ManageUsers = () => {
                           )}
                         </div>
                       </div>
-                      <span style={styles.userTitle}>{user.title || 'No title'}</span>
+                      <span style={styles.userTitle}>{user.distributor || 'No distributor'}</span>
                       <span style={styles.userEmail}>{user.email}</span>
                     </div>
                   </button>
@@ -491,13 +491,13 @@ const ManageUsers = () => {
                   </div>
 
                   <div style={styles.formGroup}>
-                    <label style={styles.formLabel}>Job Title</label>
+                    <label style={styles.formLabel}>Distributor</label>
                     <input
                       type="text"
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
+                      value={editDistributor}
+                      onChange={(e) => setEditDistributor(e.target.value)}
                       style={styles.formInput}
-                      placeholder="e.g. Software Engineer"
+                      placeholder="e.g. ABC Distribution"
                     />
                   </div>
 
