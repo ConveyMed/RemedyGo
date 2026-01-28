@@ -331,8 +331,8 @@ const ContentItemModal = ({ isOpen, onClose, onSave, onCategoryChange, item, tit
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [selectedCategoryId, setSelectedCategoryId] = useState(categoryId);
-  const [additionalCategories, setAdditionalCategories] = useState([]);
+  const [selectedCategories, setSelectedCategories] = useState([categoryId].filter(Boolean));
+  const [categoryError, setCategoryError] = useState('');
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -372,10 +372,10 @@ const ContentItemModal = ({ isOpen, onClose, onSave, onCategoryChange, item, tit
         is_downloadable: item?.is_downloadable !== false,
         use_company_logo: item?.use_company_logo || false,
       });
-      setSelectedCategoryId(categoryId);
-      // Initialize additional categories from itemCategories (excluding current category)
-      const otherCats = itemCategories.filter(catId => catId !== categoryId);
-      setAdditionalCategories(otherCats);
+      // Initialize selected categories from itemCategories, or just the current category
+      const initialCats = itemCategories.length > 0 ? itemCategories : [categoryId].filter(Boolean);
+      setSelectedCategories(initialCats);
+      setCategoryError('');
     }
   }, [isOpen, item, categoryId, itemCategories]);
 
@@ -426,11 +426,21 @@ const ContentItemModal = ({ isOpen, onClose, onSave, onCategoryChange, item, tit
 
   const handleSave = async () => {
     if (!formData.title.trim()) return;
+
+    // Validate at least one category is selected
+    if (item && selectedCategories.length === 0) {
+      setCategoryError('At least one category must be selected');
+      // Scroll to top of modal
+      modalRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     setSaving(true);
+    setCategoryError('');
     try {
-      // Combine primary category with additional categories
-      const allSelectedCategories = [selectedCategoryId, ...additionalCategories].filter(Boolean);
-      await onSave(formData, selectedCategoryId, selectedOrgId, item?.id, allSelectedCategories);
+      const categoriesToSave = selectedCategories.length > 0 ? selectedCategories : [categoryId];
+      console.log('[ContentItemModal] Saving with categories:', { selectedCategories, itemId: item?.id });
+      await onSave(formData, categoriesToSave[0], selectedOrgId, item?.id, categoriesToSave);
       onClose();
     } catch (err) {
       console.error('Error saving content:', err);
@@ -440,17 +450,14 @@ const ContentItemModal = ({ isOpen, onClose, onSave, onCategoryChange, item, tit
     }
   };
 
-  const toggleAdditionalCategory = (catId) => {
-    if (catId === selectedCategoryId) return; // Can't add primary category as additional
-    setAdditionalCategories(prev =>
+  const toggleCategory = (catId) => {
+    setCategoryError(''); // Clear error when user interacts
+    setSelectedCategories(prev =>
       prev.includes(catId)
         ? prev.filter(id => id !== catId)
         : [...prev, catId]
     );
   };
-
-  const currentCategory = categories.find(c => c.id === selectedCategoryId);
-  const availableCategories = categories.filter(c => c.id !== selectedCategoryId);
 
   if (!isOpen) return null;
 
@@ -467,48 +474,36 @@ const ContentItemModal = ({ isOpen, onClose, onSave, onCategoryChange, item, tit
           <div style={styles.categorySection}>
             <div style={styles.categorySectionHeader}>
               <FolderIcon />
-              <span style={styles.categorySectionTitle}>Category</span>
+              <span style={styles.categorySectionTitle}>Show in Categories</span>
             </div>
 
-            {/* Current/Primary Category */}
-            <div style={styles.formGroup}>
-              <label style={styles.labelSmall}>Primary Category</label>
-              <select
-                value={selectedCategoryId || ''}
-                onChange={(e) => setSelectedCategoryId(e.target.value)}
-                style={styles.select}
-              >
-                {categories.map(cat => (
-                  <option key={cat.id} value={cat.id}>{cat.title}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Additional Categories */}
-            {availableCategories.length > 0 && (
-              <div style={styles.formGroup}>
-                <label style={styles.labelSmall}>Also show in:</label>
-                <div style={styles.categoryChips}>
-                  {availableCategories.map(cat => {
-                    const isSelected = additionalCategories.includes(cat.id);
-                    return (
-                      <button
-                        key={cat.id}
-                        style={{
-                          ...styles.categoryChip,
-                          ...(isSelected ? styles.categoryChipSelected : {}),
-                        }}
-                        onClick={() => toggleAdditionalCategory(cat.id)}
-                        type="button"
-                      >
-                        {isSelected && <span style={styles.checkMark}>+</span>}
-                        {cat.title}
-                      </button>
-                    );
-                  })}
-                </div>
+            {/* Error message */}
+            {categoryError && (
+              <div style={styles.categoryError}>
+                {categoryError}
               </div>
             )}
+
+            {/* All Categories as clickable chips */}
+            <div style={styles.categoryChips}>
+              {categories.map(cat => {
+                const isSelected = selectedCategories.includes(cat.id);
+                return (
+                  <button
+                    key={cat.id}
+                    style={{
+                      ...styles.categoryChip,
+                      ...(isSelected ? styles.categoryChipSelected : {}),
+                    }}
+                    onClick={() => toggleCategory(cat.id)}
+                    type="button"
+                  >
+                    {isSelected && <span style={styles.checkMark}>+</span>}
+                    {cat.title}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -1166,6 +1161,7 @@ const ManageContentScreen = ({ type, title, backPath }) => {
 
   // Content handlers - single category + current org
   const handleSaveContent = async (formData, categoryId, orgId, existingItemId, allSelectedCategories = []) => {
+    console.log('[handleSaveContent] Called with:', { categoryId, orgId, existingItemId, allSelectedCategories });
     try {
       let itemId = existingItemId;
 
@@ -1192,11 +1188,16 @@ const ManageContentScreen = ({ type, title, backPath }) => {
 
         // Update category assignments if categories were changed
         if (allSelectedCategories.length > 0) {
+          console.log('[handleSaveContent] Updating category links for item:', existingItemId);
+
           // Delete existing category links for this item
-          await supabase
+          const { error: deleteError } = await supabase
             .from('content_item_categories')
             .delete()
             .eq('content_id', existingItemId);
+
+          if (deleteError) console.error('[handleSaveContent] Delete error:', deleteError);
+          else console.log('[handleSaveContent] Deleted old category links');
 
           // Insert new category links
           const categoryLinks = allSelectedCategories.map((catId, index) => ({
@@ -1204,21 +1205,38 @@ const ManageContentScreen = ({ type, title, backPath }) => {
             category_id: catId,
             sort_order: index,
           }));
+          console.log('[handleSaveContent] Inserting category links:', categoryLinks);
 
           const { error: linkError } = await supabase
             .from('content_item_categories')
             .insert(categoryLinks);
 
-          if (linkError) console.error('Error updating category links:', linkError);
+          if (linkError) console.error('[handleSaveContent] Insert error:', linkError);
+          else console.log('[handleSaveContent] Category links saved successfully');
 
-          // Also update the assignment for org if primary category changed
-          if (categoryId !== allSelectedCategories[0]) {
-            await supabase
-              .from('content_item_assignments')
-              .update({ category_id: allSelectedCategories[0] })
-              .eq('content_item_id', existingItemId)
-              .eq('organization_id', orgId);
-          }
+          // ALSO update content_item_assignments for the display
+          // Delete existing assignments for this item in this org
+          await supabase
+            .from('content_item_assignments')
+            .delete()
+            .eq('content_item_id', existingItemId)
+            .eq('organization_id', orgId);
+
+          // Create assignment for each selected category
+          const assignments = allSelectedCategories.map((catId, index) => ({
+            content_item_id: existingItemId,
+            organization_id: orgId,
+            category_id: catId,
+            sort_order: index,
+          }));
+          console.log('[handleSaveContent] Creating org assignments:', assignments);
+
+          const { error: assignError } = await supabase
+            .from('content_item_assignments')
+            .insert(assignments);
+
+          if (assignError) console.error('[handleSaveContent] Assignment error:', assignError);
+          else console.log('[handleSaveContent] Org assignments saved successfully');
         }
       } else {
         // Create new item
@@ -1357,18 +1375,40 @@ const ManageContentScreen = ({ type, title, backPath }) => {
   };
 
   // Delete content handler
-  const handleDeleteContent = async () => {
+  const handleDeleteContent = async (removeFromCategoryOnly = false) => {
     try {
-      // Delete content - remove assignments first, then item
-      await supabase
-        .from('content_item_assignments')
-        .delete()
-        .eq('content_item_id', deleteConfirm.id);
+      if (removeFromCategoryOnly && deleteConfirm.categoryId) {
+        // Just remove from this category (delete the assignment)
+        await supabase
+          .from('content_item_assignments')
+          .delete()
+          .eq('content_item_id', deleteConfirm.id)
+          .eq('category_id', deleteConfirm.categoryId)
+          .eq('organization_id', selectedOrgId);
 
-      await supabase
-        .from('content_items')
-        .delete()
-        .eq('id', deleteConfirm.id);
+        // Also remove from content_item_categories junction
+        await supabase
+          .from('content_item_categories')
+          .delete()
+          .eq('content_id', deleteConfirm.id)
+          .eq('category_id', deleteConfirm.categoryId);
+      } else {
+        // Delete completely - remove all assignments first, then item
+        await supabase
+          .from('content_item_assignments')
+          .delete()
+          .eq('content_item_id', deleteConfirm.id);
+
+        await supabase
+          .from('content_item_categories')
+          .delete()
+          .eq('content_id', deleteConfirm.id);
+
+        await supabase
+          .from('content_items')
+          .delete()
+          .eq('id', deleteConfirm.id);
+      }
 
       await fetchContent();
       refreshContent && refreshContent();
@@ -1376,7 +1416,14 @@ const ManageContentScreen = ({ type, title, backPath }) => {
       console.error('Error deleting content:', err);
       alert('Failed to delete');
     }
-    setDeleteConfirm({ open: false, type: null, id: null, name: '', categoryId: null, inMultipleOrgs: false });
+    setDeleteConfirm({ open: false, type: null, id: null, name: '', categoryId: null, inMultipleOrgs: false, inMultipleCategories: false });
+  };
+
+  // Check if content item is in multiple categories
+  const isItemInMultipleCategories = (itemId) => {
+    return orgAssignments.filter(a =>
+      a.content_item_id === itemId && a.organization_id === selectedOrgId
+    ).length > 1;
   };
 
   // Get item count for selected org
@@ -1467,7 +1514,7 @@ const ManageContentScreen = ({ type, title, backPath }) => {
                         }}
                         onAddContent={() => setContentModal({ open: true, item: null, categoryId: category.id, orgId: selectedOrgId })}
                         onEditContent={(item) => setContentModal({ open: true, item, categoryId: category.id, orgId: selectedOrgId })}
-                        onDeleteContent={(item) => setDeleteConfirm({ open: true, type: 'content', id: item.id, name: item.title, categoryId: category.id })}
+                        onDeleteContent={(item) => setDeleteConfirm({ open: true, type: 'content', id: item.id, name: item.title, categoryId: category.id, inMultipleCategories: isItemInMultipleCategories(item.id) })}
                         onReorderItems={handleReorderItems}
                         selectedOrgId={selectedOrgId}
                         orgAssignments={orgAssignments}
@@ -1535,14 +1582,16 @@ const ManageContentScreen = ({ type, title, backPath }) => {
       />
 
       {deleteConfirm.open && (
-        <div style={styles.modalOverlay} onClick={() => setDeleteConfirm({ open: false, type: null, id: null, name: '', categoryId: null, inMultipleOrgs: false })}>
+        <div style={styles.modalOverlay} onClick={() => setDeleteConfirm({ open: false, type: null, id: null, name: '', categoryId: null, inMultipleOrgs: false, inMultipleCategories: false })}>
           <div style={styles.deleteModal} onClick={e => e.stopPropagation()}>
             <h2 style={styles.deleteModalTitle}>
-              {deleteConfirm.type === 'category' ? 'Delete Category?' : 'Delete Content?'}
+              {deleteConfirm.type === 'category' ? 'Delete Category?' : (deleteConfirm.inMultipleCategories ? 'Remove Content?' : 'Delete Content?')}
             </h2>
             <p style={styles.deleteText}>
               {deleteConfirm.type === 'category' && deleteConfirm.inMultipleOrgs
                 ? `"${deleteConfirm.name}" exists in multiple organizations. Delete from this org only or all orgs?`
+                : deleteConfirm.type === 'content' && deleteConfirm.inMultipleCategories
+                ? `"${deleteConfirm.name}" is in multiple categories. Remove from this category only or delete completely?`
                 : `Are you sure you want to delete "${deleteConfirm.name}"?`
               }
             </p>
@@ -1559,11 +1608,24 @@ const ManageContentScreen = ({ type, title, backPath }) => {
                   )}
                 </>
               ) : (
-                <button style={styles.deleteBtnFull} onClick={handleDeleteContent}>
-                  Delete
-                </button>
+                <>
+                  {deleteConfirm.inMultipleCategories ? (
+                    <>
+                      <button style={styles.removeBtnFull} onClick={() => handleDeleteContent(true)}>
+                        Remove from This Category
+                      </button>
+                      <button style={styles.deleteBtnFull} onClick={() => handleDeleteContent(false)}>
+                        Delete Completely
+                      </button>
+                    </>
+                  ) : (
+                    <button style={styles.deleteBtnFull} onClick={() => handleDeleteContent(false)}>
+                      Delete
+                    </button>
+                  )}
+                </>
               )}
-              <button style={styles.cancelBtnFull} onClick={() => setDeleteConfirm({ open: false, type: null, id: null, name: '', categoryId: null, inMultipleOrgs: false })}>Cancel</button>
+              <button style={styles.cancelBtnFull} onClick={() => setDeleteConfirm({ open: false, type: null, id: null, name: '', categoryId: null, inMultipleOrgs: false, inMultipleCategories: false })}>Cancel</button>
             </div>
           </div>
         </div>
@@ -1623,8 +1685,9 @@ const styles = {
   select: { width: '100%', padding: '12px 14px', fontSize: '15px', border: '2px solid #e2e8f0', borderRadius: '10px', outline: 'none', boxSizing: 'border-box', backgroundColor: '#ffffff', cursor: 'pointer' },
   categoryChips: { display: 'flex', flexWrap: 'wrap', gap: '8px' },
   categoryChip: { display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '8px 14px', fontSize: '13px', fontWeight: '500', color: '#64748b', backgroundColor: '#ffffff', border: '2px solid #e2e8f0', borderRadius: '20px', cursor: 'pointer', transition: 'all 0.2s' },
-  categoryChipSelected: { backgroundColor: '#dbeafe', borderColor: 'var(--primary-blue)', color: 'var(--primary-blue)' },
+  categoryChipSelected: { backgroundColor: '#dbeafe', border: '2px solid var(--primary-blue)', color: 'var(--primary-blue)' },
   checkMark: { fontWeight: '600' },
+  categoryError: { backgroundColor: '#fef2f2', color: '#dc2626', padding: '10px 12px', borderRadius: '8px', fontSize: '14px', marginBottom: '12px', border: '1px solid #fecaca' },
   label: { display: 'block', fontSize: '13px', fontWeight: '600', color: '#64748b', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' },
   input: { width: '100%', padding: '14px 16px', fontSize: '16px', border: '2px solid #e2e8f0', borderRadius: '12px', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.2s' },
   textarea: { width: '100%', padding: '14px 16px', fontSize: '16px', border: '2px solid #e2e8f0', borderRadius: '12px', outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box', transition: 'border-color 0.2s' },
@@ -1644,6 +1707,7 @@ const styles = {
   deleteModalTitle: { fontSize: '17px', fontWeight: '600', color: 'var(--text-dark)', margin: 0, padding: '20px 16px 8px', textAlign: 'center' },
   deleteActionsVertical: { display: 'flex', flexDirection: 'column', borderTop: '1px solid #e2e8f0', marginTop: '16px' },
   deleteBtnFull: { width: '100%', padding: '14px 16px', backgroundColor: 'transparent', color: '#dc2626', border: 'none', borderBottom: '1px solid #e2e8f0', fontSize: '17px', fontWeight: '600', cursor: 'pointer' },
+  removeBtnFull: { width: '100%', padding: '14px 16px', backgroundColor: 'transparent', color: 'var(--primary-blue)', border: 'none', borderBottom: '1px solid #e2e8f0', fontSize: '17px', fontWeight: '600', cursor: 'pointer' },
   cancelBtnFull: { width: '100%', padding: '14px 16px', backgroundColor: 'transparent', color: '#007aff', border: 'none', fontSize: '17px', fontWeight: '600', cursor: 'pointer' },
   // Org selection styles
   categoryHint: { fontSize: '14px', color: '#64748b', margin: '0 0 16px 0', lineHeight: '1.4' },
