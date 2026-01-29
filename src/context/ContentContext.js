@@ -701,17 +701,31 @@ export const ContentProvider = ({ children }) => {
       setLibraryCategories(updateState);
       setTrainingCategories(updateState);
 
-      // Update in database
+      // Update in database - choose correct table based on org context
       const updates = orderedIds.map((id, index) => ({
         id,
         sort_order: index,
       }));
 
-      for (const update of updates) {
-        await supabase
-          .from('content_items')
-          .update({ sort_order: update.sort_order })
-          .eq('id', update.id);
+      if (currentViewOrgId) {
+        // Update org-specific assignments (content_item_assignments)
+        for (const update of updates) {
+          await supabase
+            .from('content_item_assignments')
+            .update({ sort_order: update.sort_order })
+            .eq('content_item_id', update.id)
+            .eq('category_id', categoryId)
+            .eq('organization_id', currentViewOrgId);
+        }
+      } else {
+        // Update global category assignments (content_item_categories)
+        for (const update of updates) {
+          await supabase
+            .from('content_item_categories')
+            .update({ sort_order: update.sort_order })
+            .eq('content_id', update.id)
+            .eq('category_id', categoryId);
+        }
       }
     } catch (err) {
       console.error('Error reordering items:', err);
