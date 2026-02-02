@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { supabase } from '../config/supabase';
 
@@ -25,6 +25,9 @@ export const ContentProvider = ({ children }) => {
 
   // Track if initial load is done
   const [initialLoaded, setInitialLoaded] = useState(false);
+
+  // Ref to hold latest loadAllContent function (avoids stale closure in refreshContent)
+  const loadAllContentRef = useRef(null);
 
   // Load content when org is available (wait for org to be set)
   useEffect(() => {
@@ -247,6 +250,9 @@ export const ContentProvider = ({ children }) => {
       setLoading(false);
     }
   };
+
+  // Keep ref updated to latest loadAllContent (for refreshContent to avoid stale closure)
+  loadAllContentRef.current = loadAllContent;
 
   // Load user's downloads
   const loadUserDownloads = async () => {
@@ -754,9 +760,11 @@ export const ContentProvider = ({ children }) => {
   }, [libraryCategories, trainingCategories, userDownloads]);
 
   // Force refresh content (for pull-to-refresh, etc.)
-  // Memoized to prevent infinite loops in useEffect dependencies
+  // Uses ref to always call latest loadAllContent (avoids stale closure)
   const refreshContent = useCallback(() => {
-    loadAllContent(true);
+    if (loadAllContentRef.current) {
+      loadAllContentRef.current(true);
+    }
   }, []);
 
   const value = {
