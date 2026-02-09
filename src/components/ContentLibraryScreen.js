@@ -4,6 +4,7 @@ import { useDownloads } from '../context/DownloadsContext';
 import { useAuth } from '../context/AuthContext';
 import { openInAppBrowser } from '../utils/browser';
 import { getOrgColor } from '../theme';
+import { useAnalytics } from '../context/AnalyticsContext';
 
 // Icons
 const SearchIcon = () => (
@@ -162,7 +163,7 @@ const CategorySection = ({ category, onItemClick, isDownloaded, getDownloadProgr
 };
 
 // Expanded Content Modal
-const ContentModal = ({ item, onClose, isDownloaded, onDownload, downloadProgress }) => {
+const ContentModal = ({ item, onClose, isDownloaded, onDownload, downloadProgress, onAssetEvent }) => {
   const modalRef = React.useRef(null);
   const overlayRef = React.useRef(null);
   const scrollYRef = React.useRef(0);
@@ -267,7 +268,10 @@ const ContentModal = ({ item, onClose, isDownloaded, onDownload, downloadProgres
           {/* View File / Document */}
           {item.file_url && (
             <button
-              onClick={() => openInAppBrowser(item.file_url)}
+              onClick={() => {
+                if (onAssetEvent) onAssetEvent(item.id, item.title, item.categoryTitle, item.categoryType, 'file_click');
+                openInAppBrowser(item.file_url);
+              }}
               style={styles.actionBtn}
             >
               <FileIcon />
@@ -278,7 +282,10 @@ const ContentModal = ({ item, onClose, isDownloaded, onDownload, downloadProgres
           {/* External Link */}
           {item.external_link && (
             <button
-              onClick={() => openInAppBrowser(item.external_link)}
+              onClick={() => {
+                if (onAssetEvent) onAssetEvent(item.id, item.title, item.categoryTitle, item.categoryType, 'link_click');
+                openInAppBrowser(item.external_link);
+              }}
               style={styles.actionBtn}
             >
               <LinkIcon />
@@ -289,7 +296,10 @@ const ContentModal = ({ item, onClose, isDownloaded, onDownload, downloadProgres
           {/* Quiz Link */}
           {item.quiz_link && (
             <button
-              onClick={() => openInAppBrowser(item.quiz_link)}
+              onClick={() => {
+                if (onAssetEvent) onAssetEvent(item.id, item.title, item.categoryTitle, item.categoryType, 'quiz_click');
+                openInAppBrowser(item.quiz_link);
+              }}
               style={styles.actionBtn}
             >
               <QuizIcon />
@@ -348,6 +358,7 @@ const ContentLibraryScreen = ({ type, title }) => {
   } = useDownloads();
 
   const { currentViewOrg, canSwitchOrgs, organizations, switchOrganizationView } = useAuth();
+  const { trackAssetEvent } = useAnalytics();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
@@ -384,6 +395,7 @@ const ContentLibraryScreen = ({ type, title }) => {
   }, [categoriesWithType, searchQuery]);
 
   const handleItemClick = (item) => {
+    trackAssetEvent(item.id, item.title, item.categoryTitle, item.categoryType, 'view');
     setSelectedItem(item);
   };
 
@@ -495,6 +507,7 @@ const ContentLibraryScreen = ({ type, title }) => {
         isDownloaded={selectedItemDownloaded}
         onDownload={handleDownload}
         downloadProgress={selectedItemProgress}
+        onAssetEvent={trackAssetEvent}
       />
     </div>
   );

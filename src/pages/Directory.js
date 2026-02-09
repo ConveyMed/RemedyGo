@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../config/supabase';
+import { useAnalytics } from '../context/AnalyticsContext';
 
 const SearchIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -48,6 +49,8 @@ const Directory = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
+  const { trackProfileView, trackDirectorySearch } = useAnalytics();
+  const searchDebounceRef = useRef(null);
 
   // Get directory permission setting
   const directoryMode = localStorage.getItem('directoryPermission') || 'all';
@@ -62,13 +65,20 @@ const Directory = () => {
       setFilteredUsers(users);
     } else {
       const query = searchQuery.toLowerCase();
-      setFilteredUsers(users.filter(user => {
+      const results = users.filter(user => {
         const fullName = `${user.first_name || ''} ${user.last_name || ''}`.toLowerCase();
         const distributor = (user.distributor || '').toLowerCase();
         return fullName.includes(query) || distributor.includes(query);
-      }));
+      });
+      setFilteredUsers(results);
+
+      // Debounced analytics tracking
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = setTimeout(() => {
+        trackDirectorySearch(searchQuery, results.length);
+      }, 1000);
     }
-  }, [searchQuery, users]);
+  }, [searchQuery, users, trackDirectorySearch]);
 
   const loadUsers = async () => {
     try {
@@ -96,6 +106,7 @@ const Directory = () => {
   };
 
   const openUserDetail = (user) => {
+    trackProfileView(user.id);
     setSelectedUser(user);
   };
 
