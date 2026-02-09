@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { supabase } from '../config/supabase';
+import { logAIQuery } from '../services/analytics';
 
 const AIChatContext = createContext();
 
@@ -154,6 +155,13 @@ export const AIChatProvider = ({ children }) => {
     const userMessage = { role: 'user', content: question.trim() };
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
+
+    // Track AI query for analytics
+    const trackQuery = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) logAIQuery(user.id, question.trim(), selectedProduct);
+    };
+    trackQuery();
 
     setIsLoading(true);
     setError(null);

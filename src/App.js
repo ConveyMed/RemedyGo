@@ -51,6 +51,7 @@ import AIChatPanel from './components/AIChatPanel';
 import OfflineLoginScreen from './components/OfflineLoginScreen';
 import OfflineScreen from './components/OfflineScreen';
 import { AIChatProvider } from './context/AIChatContext';
+import { AnalyticsProvider } from './context/AnalyticsContext';
 import { ChatProvider } from './context/ChatContext';
 import CreatePostModal from './components/CreatePostModal';
 import './App.css';
@@ -575,13 +576,15 @@ function App() {
                   <ActivityNotificationsProvider>
                     <ChatProvider>
                       <AIChatProvider>
-                        {/* OneSignal Components */}
-                        <OneSignalInitializer />
-                        <DeviceRegistration />
-                        <ReturningUserPermissions />
-                        {/* Main App */}
-                        <AppContent />
-                        <AIChatPanel />
+                        <AnalyticsProvider>
+                          {/* OneSignal Components */}
+                          <OneSignalInitializer />
+                          <DeviceRegistration />
+                          <ReturningUserPermissions />
+                          {/* Main App */}
+                          <AppContent />
+                          <AIChatPanel />
+                        </AnalyticsProvider>
                       </AIChatProvider>
                     </ChatProvider>
                   </ActivityNotificationsProvider>
