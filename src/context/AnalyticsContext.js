@@ -44,6 +44,7 @@ const SCREEN_NAMES = {
   '/manage-users': 'Manage Users',
   '/org-onboarding': 'Organization Onboarding',
   '/manage-org-codes': 'Manage Org Codes',
+  '/manage-analytics': 'Analytics Dashboard',
 };
 
 // Routes to skip tracking (auth flow, etc)

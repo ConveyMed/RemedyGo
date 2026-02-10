@@ -40,6 +40,7 @@ import Updates from './pages/Updates';
 import ManageUpdates from './pages/ManageUpdates';
 import ManageAI from './pages/ManageAI';
 import ManageOrgCodes from './pages/ManageOrgCodes';
+import ManageAnalytics from './pages/ManageAnalytics';
 import OrganizationOnboarding from './pages/OrganizationOnboarding';
 import Downloads from './pages/Downloads';
 import FileViewer from './pages/FileViewer';
@@ -554,6 +555,13 @@ function AppContent() {
               : !isProfileComplete
                 ? <Navigate to="/profile-complete" replace />
                 : <AppShell showNav={showBottomNav}><ManageChat /></AppShell>
+          } />
+          <Route path="/manage-analytics/*" element={
+            !isAuthenticated
+              ? <Navigate to="/" replace />
+              : !isProfileComplete
+                ? <Navigate to="/profile-complete" replace />
+                : <ManageAnalytics />
           } />
           {/* Catch all */}
           <Route path="*" element={<Navigate to="/" replace />} />
