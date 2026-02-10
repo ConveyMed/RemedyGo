@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useMemo, useEffect, useCallback } from 'react'
-import { getSupabaseClient } from '../config/supabase'
 import { APPS, DEFAULT_APP } from '../config/apps'
+import { supabase as mainSupabase } from '../../config/supabase'
 
 const AppContext = createContext(null)
 
@@ -33,10 +33,8 @@ export function AppProvider({ children }) {
     localStorage.setItem('analytics_selected_app', selectedAppId)
   }, [selectedAppId])
 
-  const supabase = useMemo(() => {
-    if (!currentApp?.supabaseUrl || !currentApp?.supabaseKey) return null
-    return getSupabaseClient(currentApp.supabaseUrl, currentApp.supabaseKey)
-  }, [currentApp])
+  // Reuse the main app's authenticated Supabase client
+  const supabase = mainSupabase
 
   // Fetch organizations when app changes (only for apps with orgs)
   useEffect(() => {
