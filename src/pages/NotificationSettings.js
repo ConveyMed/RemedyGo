@@ -44,20 +44,11 @@ const CalendarIcon = () => (
   </svg>
 );
 
-const MailIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-    <polyline points="22,6 12,13 2,6" />
-  </svg>
-);
-
 // Default preferences
 const defaultPreferences = {
   push_new_posts: true,
-  email_new_posts: true,
   push_post_likes: true,
   push_post_comments: true,
-  email_post_comments: true,
   push_comment_replies: true,
   push_bookmarked_comments: true,
   push_direct_messages: true,
@@ -65,11 +56,8 @@ const defaultPreferences = {
   push_chat_added: true,
   push_chat_removed: true,
   push_new_updates: true,
-  email_new_updates: true,
   push_new_events: true,
-  email_new_events: true,
   push_event_reminders: true,
-  email_event_reminders: true,
 };
 
 const NotificationSettings = () => {
@@ -105,10 +93,8 @@ const NotificationSettings = () => {
         if (data) {
           setPreferences({
             push_new_posts: data.push_new_posts ?? true,
-            email_new_posts: data.email_new_posts ?? true,
             push_post_likes: data.push_post_likes ?? true,
             push_post_comments: data.push_post_comments ?? true,
-            email_post_comments: data.email_post_comments ?? true,
             push_comment_replies: data.push_comment_replies ?? true,
             push_bookmarked_comments: data.push_bookmarked_comments ?? true,
             push_direct_messages: data.push_direct_messages ?? true,
@@ -116,11 +102,8 @@ const NotificationSettings = () => {
             push_chat_added: data.push_chat_added ?? true,
             push_chat_removed: data.push_chat_removed ?? true,
             push_new_updates: data.push_new_updates ?? true,
-            email_new_updates: data.email_new_updates ?? true,
             push_new_events: data.push_new_events ?? true,
-            email_new_events: data.email_new_events ?? true,
             push_event_reminders: data.push_event_reminders ?? true,
-            email_event_reminders: data.email_event_reminders ?? true,
           });
         }
 
@@ -574,43 +557,25 @@ const NotificationSettings = () => {
 
             <div style={styles.optionsList}>
               <OptionRow
-                label="New Updates - Push"
+                label="New Updates"
                 hint="Organization announcements"
                 value={preferences.push_new_updates}
                 onChange={(v) => updatePreference('push_new_updates', v)}
                 isPush
               />
               <OptionRow
-                label="New Updates - Email"
-                hint="Email for announcements"
-                value={preferences.email_new_updates}
-                onChange={(v) => updatePreference('email_new_updates', v)}
-              />
-              <OptionRow
-                label="New Events - Push"
+                label="New Events"
                 hint="When new events are created"
                 value={preferences.push_new_events}
                 onChange={(v) => updatePreference('push_new_events', v)}
                 isPush
               />
               <OptionRow
-                label="New Events - Email"
-                hint="Email for new events"
-                value={preferences.email_new_events}
-                onChange={(v) => updatePreference('email_new_events', v)}
-              />
-              <OptionRow
-                label="Event Reminders - Push"
+                label="Event Reminders"
                 hint="Reminders before events start"
                 value={preferences.push_event_reminders}
                 onChange={(v) => updatePreference('push_event_reminders', v)}
                 isPush
-              />
-              <OptionRow
-                label="Event Reminders - Email"
-                hint="Email reminders for events"
-                value={preferences.email_event_reminders}
-                onChange={(v) => updatePreference('email_event_reminders', v)}
                 isLast
               />
             </div>

@@ -288,7 +288,6 @@ export const notifyNewPost = async ({
   organizationId = null,
   isAllOrgs = false,
   notifyPush = true,
-  notifyEmail = false,
 }) => {
   console.log('[Push] notifyNewPost called');
   console.log('[Push] Sender ID (excluded):', senderId);

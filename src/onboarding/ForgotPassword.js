@@ -20,16 +20,10 @@ function ForgotPassword() {
     setError('');
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('send-reset-email', {
-        body: { email }
-      });
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email);
 
-      if (fnError) {
-        throw fnError;
-      }
-
-      if (data?.error) {
-        throw new Error(data.error);
+      if (resetError) {
+        throw resetError;
       }
 
       setIsSuccess(true);

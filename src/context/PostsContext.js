@@ -331,7 +331,6 @@ export const PostsProvider = ({ children }) => {
           userId: post.user_id,
           isPinned: post.is_pinned || false,
           notifyPush: post.notify_push || false,
-          notifyEmail: post.notify_email || false,
           scheduledAt: post.scheduled_at,
           organizationId: post.organization_id,
           isAllOrgs: post.is_all_orgs || false,
@@ -405,7 +404,6 @@ export const PostsProvider = ({ children }) => {
           }),
           userId: post.user_id,
           notifyPush: post.notify_push || false,
-          notifyEmail: post.notify_email || false,
         };
       });
 
@@ -686,7 +684,6 @@ export const PostsProvider = ({ children }) => {
     const videos = media.filter(m => m.type === 'video').map(m => m.url);
     const {
       notifyPush = false,
-      notifyEmail = false,
       scheduledAt = null,
       organizationId = null,  // Which org this post belongs to
       isAllOrgs = false       // If true, visible to both orgs
@@ -711,7 +708,6 @@ export const PostsProvider = ({ children }) => {
           videos,
           links,
           notify_push: notifyPush,
-          notify_email: notifyEmail,
           scheduled_at: scheduledAt || new Date().toISOString(),
           organization_id: postOrgId,
           is_all_orgs: isAllOrgs,
@@ -773,7 +769,7 @@ export const PostsProvider = ({ children }) => {
         }
 
         // Send notifications if enabled (only for immediate posts)
-        if (notifyPush || notifyEmail) {
+        if (notifyPush) {
           notifyNewPost({
             senderId: user.id,
             senderName: `${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim(),
@@ -782,7 +778,6 @@ export const PostsProvider = ({ children }) => {
             organizationId: data.organization_id,
             isAllOrgs: data.is_all_orgs || false,
             notifyPush,
-            notifyEmail,
           }).catch(err => console.error('Notification error:', err));
         }
       }
@@ -939,7 +934,6 @@ export const PostsProvider = ({ children }) => {
     if (updates.links !== undefined) dbUpdates.links = updates.links;
     if (updates.scheduledAt !== undefined) dbUpdates.scheduled_at = updates.scheduledAt;
     if (updates.notifyPush !== undefined) dbUpdates.notify_push = updates.notifyPush;
-    if (updates.notifyEmail !== undefined) dbUpdates.notify_email = updates.notifyEmail;
 
     try {
       const { error } = await supabase

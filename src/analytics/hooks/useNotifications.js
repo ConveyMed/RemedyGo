@@ -17,7 +17,7 @@ export default function useNotifications() {
       // Get posts that triggered push notifications
       let postsQuery = supabase
         .from('posts')
-        .select('id, content, notify_push, notify_email, created_at')
+        .select('id, content, notify_push, created_at')
         .eq('notify_push', true)
 
       if (dateRange.startDate) {

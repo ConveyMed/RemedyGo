@@ -310,15 +310,6 @@
 
 ---
 
-## Email Notifications (Resend)
-- [ ] Resend API setup
-- [ ] New post email template
-- [ ] New comment email template
-- [ ] Report email template (admin)
-- [ ] Respect user preferences
-
----
-
 ## Capacitor Build
 - [ ] Capacitor configuration
 - [ ] iOS build setup

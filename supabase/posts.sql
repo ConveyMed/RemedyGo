@@ -26,7 +26,6 @@ CREATE TABLE IF NOT EXISTS posts (
   is_pinned BOOLEAN DEFAULT false,
   is_archived BOOLEAN DEFAULT false,
   notify_push BOOLEAN DEFAULT false,
-  notify_email BOOLEAN DEFAULT false,
   organization_id UUID,  -- Which org this post belongs to (NULL = legacy)
   is_all_orgs BOOLEAN DEFAULT false,  -- If true, visible to both orgs
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -38,7 +37,6 @@ ALTER TABLE posts ADD COLUMN IF NOT EXISTS links JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE posts ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN DEFAULT false;
 ALTER TABLE posts ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT false;
 ALTER TABLE posts ADD COLUMN IF NOT EXISTS notify_push BOOLEAN DEFAULT false;
-ALTER TABLE posts ADD COLUMN IF NOT EXISTS notify_email BOOLEAN DEFAULT false;
 ALTER TABLE posts ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
 ALTER TABLE posts ADD COLUMN IF NOT EXISTS organization_id UUID;
 ALTER TABLE posts ADD COLUMN IF NOT EXISTS is_all_orgs BOOLEAN DEFAULT false;
