@@ -59,7 +59,6 @@ interface NotificationPayload {
 
   // Flags from post creation
   notify_push?: boolean;
-  notify_email?: boolean;
 }
 
 serve(async (req) => {
@@ -163,7 +162,7 @@ serve(async (req) => {
       // ========== POST EVENTS ==========
       case 'new_post': {
         // Only send if post creator enabled notifications
-        if (!payload.notify_push && !payload.notify_email) {
+        if (!payload.notify_push) {
           results.message = "Notifications disabled for this post";
           break;
         }
@@ -182,20 +181,6 @@ serve(async (req) => {
           });
         }
 
-        if (payload.notify_email) {
-          results.email = await callEdgeFunction('send-email-notification', {
-            user_ids: targetUsers,
-            exclude_user_id: payload.sender_id,
-            subject: 'New Post Published',
-            template: 'new_post',
-            template_data: {
-              author_name: payload.sender_name || 'Someone',
-              post_preview: payload.post_preview || '',
-              post_url: `${SUPABASE_URL.replace('.supabase.co', '.netlify.app')}/home`,
-            },
-            notification_type: 'new_post',
-          });
-        }
         break;
       }
 
@@ -223,17 +208,6 @@ serve(async (req) => {
           data: { post_id: payload.post_id },
         });
 
-        results.email = await callEdgeFunction('send-email-notification', {
-          user_ids: [payload.post_author_id],
-          subject: 'New Comment on Your Post',
-          template: 'new_comment',
-          template_data: {
-            commenter_name: payload.sender_name || 'Someone',
-            comment_text: payload.comment_text || '',
-            post_url: `${SUPABASE_URL.replace('.supabase.co', '.netlify.app')}/home`,
-          },
-          notification_type: 'post_comment',
-        });
         break;
       }
 
@@ -343,18 +317,6 @@ serve(async (req) => {
           data: { notification_id: payload.notification_id },
         });
 
-        results.email = await callEdgeFunction('send-email-notification', {
-          user_ids: targetUsers,
-          exclude_user_id: payload.sender_id,
-          subject: payload.title || 'New Organization Update',
-          template: 'new_update',
-          template_data: {
-            title: payload.title || 'New Update',
-            body: payload.body || '',
-            update_url: `${SUPABASE_URL.replace('.supabase.co', '.netlify.app')}/updates`,
-          },
-          notification_type: 'new_update',
-        });
         break;
       }
 
@@ -371,18 +333,6 @@ serve(async (req) => {
           data: { notification_id: payload.notification_id },
         });
 
-        results.email = await callEdgeFunction('send-email-notification', {
-          user_ids: targetUsers,
-          exclude_user_id: payload.sender_id,
-          subject: `New Event: ${payload.title || 'Upcoming Event'}`,
-          template: 'new_event',
-          template_data: {
-            title: payload.title || 'New Event',
-            body: payload.body || '',
-            event_url: `${SUPABASE_URL.replace('.supabase.co', '.netlify.app')}/updates`,
-          },
-          notification_type: 'new_event',
-        });
         break;
       }
 
@@ -405,17 +355,6 @@ serve(async (req) => {
             data: { user_id: payload.new_user_id },
           });
 
-          results.email = await callEdgeFunction('send-email-notification', {
-            user_ids: adminIds,
-            subject: 'New User Joined Your Organization',
-            template: 'new_user',
-            template_data: {
-              user_name: payload.new_user_name || 'New User',
-              user_email: payload.new_user_email || '',
-              manage_url: `${SUPABASE_URL.replace('.supabase.co', '.netlify.app')}/manage-users`,
-            },
-            notification_type: 'new_update', // Use new_update preference for admin notifications
-          });
         }
         break;
       }
@@ -430,18 +369,6 @@ serve(async (req) => {
             message: `A conversation has been reported`,
             notification_type: 'report',
             data: { chat_id: payload.chat_id },
-          });
-
-          results.email = await callEdgeFunction('send-email-notification', {
-            user_ids: adminIds,
-            subject: 'Conversation Reported - Action Required',
-            template: 'report_alert',
-            template_data: {
-              reporter_name: payload.sender_name || 'A user',
-              reason: payload.report_reason || 'No reason provided',
-              review_url: `${SUPABASE_URL.replace('.supabase.co', '.netlify.app')}/manage-chat`,
-            },
-            notification_type: 'new_update', // Use new_update preference for admin notifications
           });
         }
         break;

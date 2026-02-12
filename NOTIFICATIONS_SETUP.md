@@ -25,17 +25,6 @@
 - App ID: [Get from OneSignal Dashboard]
 - SDK: Ionic (for Capacitor - not Web React)
 
-### 2. Resend (Email Notifications)
-- **Website:** https://resend.com
-- **Keys needed:**
-  - `RESEND_API_KEY` - Found in API Keys section
-
-**Setup steps:**
-1. Create account at resend.com
-2. For testing: Use sandbox (sends from `onboarding@resend.dev` to your verified email only)
-3. For production: Verify your domain in Resend dashboard
-4. Create API key and copy it
-
 ---
 
 ## Configuration
@@ -44,7 +33,6 @@
 ```bash
 supabase secrets set ONESIGNAL_APP_ID=your_app_id --project-ref YOUR_PROJECT_REF
 supabase secrets set ONESIGNAL_REST_API_KEY=your_rest_api_key --project-ref YOUR_PROJECT_REF
-supabase secrets set RESEND_API_KEY=your_resend_api_key --project-ref YOUR_PROJECT_REF
 ```
 
 ### Frontend Environment (.env)
@@ -61,7 +49,6 @@ Run `supabase/notification_preferences.sql` in Supabase SQL Editor to create the
 
 ## Edge Functions Deployed
 - `send-push-notification` - OneSignal integration
-- `send-email-notification` - Resend integration
 - `notification-dispatcher` - Central routing
 
 ---
@@ -88,7 +75,6 @@ Run `supabase/notification_preferences.sql` in Supabase SQL Editor to create the
 - Event reminder
 - RSVP digest
 
-### Admin (3)
+### Admin (2)
 - New user joined
 - Conversation reported
-- (RSVP responses - email only)

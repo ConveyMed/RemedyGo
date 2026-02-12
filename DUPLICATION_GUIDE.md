@@ -20,13 +20,6 @@ REACT_APP_ONESIGNAL_APP_ID=[CHANGE: OneSignal App ID]
 REACT_APP_ONESIGNAL_REST_API_KEY=[CHANGE: OneSignal REST API Key]
 ```
 
-### 2b. Resend API (Email Notifications)
-**Location:** Supabase Dashboard > Project Settings > Secrets
-```
-RESEND_API_KEY=[CHANGE: Resend API Key]
-```
-**Note:** Used by Supabase Edge Functions for email notifications. For testing, Resend sandbox sends from `onboarding@resend.dev` to verified emails only.
-
 ### 3. Capacitor Config
 **File:** `capacitor.config.ts`
 ```typescript

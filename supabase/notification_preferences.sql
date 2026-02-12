@@ -7,10 +7,8 @@ CREATE TABLE IF NOT EXISTS user_notification_preferences (
 
   -- Posts & Feed
   push_new_posts BOOLEAN DEFAULT true,
-  email_new_posts BOOLEAN DEFAULT true,
   push_post_likes BOOLEAN DEFAULT true,
   push_post_comments BOOLEAN DEFAULT true,
-  email_post_comments BOOLEAN DEFAULT true,
   push_comment_replies BOOLEAN DEFAULT true,
   push_bookmarked_comments BOOLEAN DEFAULT true,
 
@@ -22,11 +20,8 @@ CREATE TABLE IF NOT EXISTS user_notification_preferences (
 
   -- Updates & Events
   push_new_updates BOOLEAN DEFAULT true,
-  email_new_updates BOOLEAN DEFAULT true,
   push_new_events BOOLEAN DEFAULT true,
-  email_new_events BOOLEAN DEFAULT true,
   push_event_reminders BOOLEAN DEFAULT true,
-  email_event_reminders BOOLEAN DEFAULT true,
 
   -- OneSignal Player ID for push notifications
   onesignal_player_id TEXT,
@@ -90,8 +85,7 @@ ON CONFLICT (user_id) DO NOTHING;
 
 -- Add sent tracking columns to notifications table
 ALTER TABLE notifications
-  ADD COLUMN IF NOT EXISTS push_sent_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS email_sent_at TIMESTAMPTZ;
+  ADD COLUMN IF NOT EXISTS push_sent_at TIMESTAMPTZ;
 
 -- Index for quick player_id lookups
 CREATE INDEX IF NOT EXISTS idx_notification_prefs_player_id

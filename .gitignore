@@ -37,3 +37,8 @@ ios/App/App/public/
 # Local Netlify folder
 .netlify
 .env
+
+# Android signing
+android/keystore.properties
+android/*.jks
+android/*.pem

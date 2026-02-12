@@ -226,10 +226,8 @@ const createDefaultPreferences = async (userId) => {
       .insert({
         user_id: userId,
         push_new_posts: true,
-        email_new_posts: true,
         push_post_likes: true,
         push_post_comments: true,
-        email_post_comments: true,
         push_comment_replies: true,
         push_bookmarked_comments: true,
         push_direct_messages: true,
@@ -237,11 +235,8 @@ const createDefaultPreferences = async (userId) => {
         push_chat_added: true,
         push_chat_removed: true,
         push_new_updates: true,
-        email_new_updates: true,
         push_new_events: true,
-        email_new_events: true,
         push_event_reminders: true,
-        email_event_reminders: true,
       });
 
     if (error) {
