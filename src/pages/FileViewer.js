@@ -89,7 +89,7 @@ const SpreadsheetViewer = ({ fileUrl, fileName }) => {
       setSheets(parsedSheets);
     } catch (err) {
       console.error('Error loading spreadsheet:', err);
-      setError('Failed to load spreadsheet');
+      setError('Failed to load spreadsheet. Please delete and reinstall the app before contacting support.');
     } finally {
       setLoading(false);
     }
@@ -174,7 +174,7 @@ const DocumentViewer = ({ fileUrl }) => {
       }
     } catch (err) {
       console.error('Error loading document:', err);
-      setError('Failed to load document');
+      setError('Failed to load document. Please delete and reinstall the app before contacting support.');
     } finally {
       setLoading(false);
     }
@@ -240,7 +240,7 @@ const FileViewer = () => {
       setFileUrl(result.url);
     } catch (err) {
       console.error('Error loading file:', err);
-      setError('Failed to load file');
+      setError('Failed to load file. Please delete and reinstall the app before contacting support.');
     } finally {
       setLoading(false);
     }
@@ -359,22 +359,27 @@ const FileViewer = () => {
 
 const styles = {
   container: {
-    height: '100vh',
-    backgroundColor: 'var(--text-dark)',
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#0f172a',
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
+    paddingTop: 'var(--safe-area-top)',
   },
   header: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: '12px 16px',
-    paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))',
+    paddingTop: '12px',
     backgroundColor: '#0f172a',
-    position: 'sticky',
-    top: 0,
+    position: 'relative',
     zIndex: 100,
+    flexShrink: 0,
   },
   backBtn: {
     width: '40px',

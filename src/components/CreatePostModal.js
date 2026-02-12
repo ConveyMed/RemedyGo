@@ -162,7 +162,6 @@ const CreatePostModal = () => {
     setLinkName('');
     setShowLinkInput(false);
     setNotifyPush(false);
-    setNotifyEmail(false);
     setScheduledAt(getCurrentDatetime());
     setSelectedOrg(currentViewOrgId || null);
     if (imageInputRef.current) imageInputRef.current.value = '';
