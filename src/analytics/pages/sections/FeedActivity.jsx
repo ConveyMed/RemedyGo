@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { HiOutlineNewspaper, HiOutlineHeart, HiOutlineChatAlt } from 'react-icons/hi'
+import { HiOutlineNewspaper, HiOutlineHeart } from 'react-icons/hi'
 import TimeframeSelector from '../../components/TimeframeSelector'
 import StatCardGrid from '../../components/charts/StatCardGrid'
 import BarChart from '../../components/charts/BarChart'
@@ -29,7 +29,7 @@ export default function FeedActivity() {
     {
       title: 'No Response Posts',
       value: formatNumber(data.postsNoEngagement),
-      subtitle: 'Zero likes or comments'
+      subtitle: 'Zero likes'
     },
     {
       title: 'Avg Unique Users (All)',
@@ -71,17 +71,6 @@ export default function FeedActivity() {
       render: (val) => (
         <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
           <HiOutlineHeart style={{ color: 'var(--error)' }} />
-          {formatNumber(val)}
-        </span>
-      )
-    },
-    {
-      key: 'comments',
-      label: 'Comments',
-      align: 'right',
-      render: (val) => (
-        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
-          <HiOutlineChatAlt style={{ color: 'var(--accent)' }} />
           {formatNumber(val)}
         </span>
       )

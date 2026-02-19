@@ -131,7 +131,6 @@ export default function Dashboard() {
           columns: [
             { key: 'title', label: 'Post' },
             { key: 'likes', label: 'Likes' },
-            { key: 'comments', label: 'Comments' },
             { key: 'points', label: 'Points' }
           ],
           tableData: feedActivity.data.topPosts

@@ -56,16 +56,15 @@ test.describe('Home/Posts Page', () => {
     }
   });
 
-  test('should show like and comment buttons on posts', async ({ page }) => {
+  test('should show like button on posts', async ({ page }) => {
     // Wait for posts to load
     await page.waitForTimeout(2000);
 
     // Check for interaction buttons
     const likeBtn = page.locator('button >> text=/like/i, [data-testid="like-btn"], svg').first();
-    const commentBtn = page.locator('button >> text=/comment/i, [data-testid="comment-btn"]').first();
 
-    // At least one should be visible if posts exist
-    const hasInteractions = await likeBtn.or(commentBtn).isVisible().catch(() => false);
+    // Should be visible if posts exist
+    const hasInteractions = await likeBtn.isVisible().catch(() => false);
     console.log('Post interactions visible:', hasInteractions);
   });
 });

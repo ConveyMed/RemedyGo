@@ -21,9 +21,6 @@ interface PushNotificationRequest {
   notification_type:
     | 'new_post'
     | 'post_like'
-    | 'post_comment'
-    | 'comment_reply'
-    | 'bookmarked_comment'
     | 'direct_message'
     | 'group_message'
     | 'chat_added'
@@ -42,9 +39,6 @@ interface PushNotificationRequest {
 const preferenceMap: Record<string, string> = {
   'new_post': 'push_new_posts',
   'post_like': 'push_post_likes',
-  'post_comment': 'push_post_comments',
-  'comment_reply': 'push_comment_replies',
-  'bookmarked_comment': 'push_bookmarked_comments',
   'direct_message': 'push_direct_messages',
   'group_message': 'push_group_messages',
   'chat_added': 'push_chat_added',

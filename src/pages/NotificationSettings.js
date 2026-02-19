@@ -23,12 +23,6 @@ const BellIcon = () => (
   </svg>
 );
 
-const CommentIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-  </svg>
-);
-
 const ChatIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
@@ -48,9 +42,6 @@ const CalendarIcon = () => (
 const defaultPreferences = {
   push_new_posts: true,
   push_post_likes: true,
-  push_post_comments: true,
-  push_comment_replies: true,
-  push_bookmarked_comments: true,
   push_direct_messages: true,
   push_group_messages: true,
   push_chat_added: true,
@@ -94,9 +85,6 @@ const NotificationSettings = () => {
           setPreferences({
             push_new_posts: data.push_new_posts ?? true,
             push_post_likes: data.push_post_likes ?? true,
-            push_post_comments: data.push_post_comments ?? true,
-            push_comment_replies: data.push_comment_replies ?? true,
-            push_bookmarked_comments: data.push_bookmarked_comments ?? true,
             push_direct_messages: data.push_direct_messages ?? true,
             push_group_messages: data.push_group_messages ?? true,
             push_chat_added: data.push_chat_added ?? true,
@@ -464,13 +452,6 @@ const NotificationSettings = () => {
                 hint="Get notified when new posts are published"
                 value={preferences.push_new_posts}
                 onChange={(v) => updatePreference('push_new_posts', v)}
-                isPush
-              />
-              <OptionRow
-                label="Comments"
-                hint="Get notified when comments are added to posts"
-                value={preferences.push_post_comments}
-                onChange={(v) => updatePreference('push_post_comments', v)}
                 isPush
                 isLast={!isAdmin}
               />

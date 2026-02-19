@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
 import { useActivityNotifications } from '../context/ActivityNotificationsContext';
 
 // Bell Icon
@@ -14,13 +14,6 @@ const CloseIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <line x1="18" y1="6" x2="6" y2="18" />
     <line x1="6" y1="6" x2="18" y2="18" />
-  </svg>
-);
-
-// Message Icon (for comments)
-const MessageIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
   </svg>
 );
 
@@ -81,19 +74,13 @@ export const NotificationBanner = ({ bellRef }) => {
 
   const grouped = getGroupedNotifications();
   const hasNewPosts = grouped.newPosts?.length > 0;
-  const hasNewComments = Object.keys(grouped.commentsByPost || {}).length > 0;
 
   // Build message
   const postCount = grouped.newPosts?.length || 0;
-  const commentPostCount = Object.keys(grouped.commentsByPost || {}).length;
 
   let message = 'You have ';
-  if (hasNewPosts && hasNewComments) {
-    message += `${postCount} new post${postCount > 1 ? 's' : ''} and new comments`;
-  } else if (hasNewPosts) {
+  if (hasNewPosts) {
     message += `${postCount} new post${postCount > 1 ? 's' : ''}`;
-  } else if (hasNewComments) {
-    message += `new comments on ${commentPostCount} post${commentPostCount > 1 ? 's' : ''}`;
   }
 
   const handleTap = () => {
@@ -135,8 +122,6 @@ export const NotificationPanel = ({ onNavigate }) => {
     panelOpen,
     closePanel,
     getGroupedNotifications,
-    getUnreadNotifications,
-    isNotificationRead,
     markAllAsRead,
     navigateToNotification,
   } = useActivityNotifications();
@@ -144,7 +129,6 @@ export const NotificationPanel = ({ onNavigate }) => {
   if (!panelOpen) return null;
 
   const grouped = getGroupedNotifications();
-  const unread = getUnreadNotifications();
   const hasAny = grouped.totalNew > 0 || grouped.totalOlder > 0;
 
   const handleItemClick = (notification) => {
@@ -257,64 +241,6 @@ export const NotificationPanel = ({ onNavigate }) => {
                 </div>
               )}
 
-              {/* New Comments Section */}
-              {Object.keys(grouped.commentsByPost || {}).length > 0 && (
-                <div style={styles.section}>
-                  <div style={styles.sectionHeader}>
-                    <MessageIcon />
-                    <span style={styles.sectionTitle}>New Comments</span>
-                  </div>
-                  {Object.entries(grouped.commentsByPost).map(([postId, data]) => {
-                    // Check if any comment in this group is unread
-                    const hasUnreadComment = data.comments.some(c => !c.isRead);
-                    return (
-                      <div
-                        key={postId}
-                        style={{
-                          ...styles.notificationItem,
-                          ...(!hasUnreadComment ? styles.notificationItemRead : {}),
-                        }}
-                        onClick={() => handleItemClick(data.comments[0])}
-                      >
-                        <div style={styles.itemAvatar}>
-                          {data.latestActor?.profile_image_url ? (
-                            <img
-                              src={data.latestActor.profile_image_url}
-                              alt=""
-                              style={styles.avatarImg}
-                            />
-                          ) : (
-                            <div style={styles.avatarPlaceholder}>
-                              {data.latestActor?.first_name?.[0] || '?'}
-                            </div>
-                          )}
-                        </div>
-                        <div style={styles.itemContent}>
-                          <p style={{
-                            ...styles.itemText,
-                            ...(!hasUnreadComment ? styles.itemTextRead : {}),
-                          }}>
-                            <strong>
-                              {data.latestActor?.first_name} {data.latestActor?.last_name}
-                            </strong>
-                            {data.comments.length > 1
-                              ? ` and ${data.comments.length - 1} other${data.comments.length > 2 ? 's' : ''} commented`
-                              : ' commented'}
-                          </p>
-                          <p style={styles.itemPreview}>
-                            on "{truncate(data.post?.content, 40)}"
-                          </p>
-                          <p style={styles.itemTime}>
-                            {formatTime(data.comments[0].created_at)}
-                          </p>
-                        </div>
-                        {hasUnreadComment && <div style={styles.unreadDot} />}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
               {/* Earlier This Week Section */}
               {grouped.totalOlder > 0 && (
                 <div style={styles.section}>
@@ -362,47 +288,6 @@ export const NotificationPanel = ({ onNavigate }) => {
                       {!notification.isRead && <div style={styles.unreadDot} />}
                     </div>
                   ))}
-                  {/* Older Comments */}
-                  {grouped.olderComments?.map(notification => (
-                    <div
-                      key={notification.id}
-                      style={{
-                        ...styles.notificationItem,
-                        ...(notification.isRead ? styles.notificationItemRead : {}),
-                      }}
-                      onClick={() => handleItemClick(notification)}
-                    >
-                      <div style={styles.itemAvatar}>
-                        {notification.actor?.profile_image_url ? (
-                          <img
-                            src={notification.actor.profile_image_url}
-                            alt=""
-                            style={styles.avatarImg}
-                          />
-                        ) : (
-                          <div style={styles.avatarPlaceholder}>
-                            {notification.actor?.first_name?.[0] || '?'}
-                          </div>
-                        )}
-                      </div>
-                      <div style={styles.itemContent}>
-                        <p style={{
-                          ...styles.itemText,
-                          ...(notification.isRead ? styles.itemTextRead : {}),
-                        }}>
-                          <strong>
-                            {notification.actor?.first_name} {notification.actor?.last_name}
-                          </strong>
-                          {' '}commented
-                        </p>
-                        <p style={styles.itemPreview}>
-                          on "{truncate(notification.post?.content, 40)}"
-                        </p>
-                        <p style={styles.itemTime}>{formatTime(notification.created_at)}</p>
-                      </div>
-                      {!notification.isRead && <div style={styles.unreadDot} />}
-                    </div>
-                  ))}
                 </div>
               )}
             </>
@@ -410,19 +295,6 @@ export const NotificationPanel = ({ onNavigate }) => {
         </div>
       </div>
     </>
-  );
-};
-
-// ============================================
-// NEW COMMENTS DIVIDER
-// ============================================
-export const NewCommentsDivider = () => {
-  return (
-    <div style={styles.newDivider}>
-      <div style={styles.newDividerLine} />
-      <span style={styles.newDividerText}>New</span>
-      <div style={styles.newDividerLine} />
-    </div>
   );
 };
 
@@ -689,25 +561,6 @@ const styles = {
     marginTop: '6px',
   },
 
-  // New comments divider
-  newDivider: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    margin: '16px 0',
-  },
-  newDividerLine: {
-    flex: 1,
-    height: '1px',
-    backgroundColor: 'var(--primary-blue)',
-  },
-  newDividerText: {
-    fontSize: '12px',
-    fontWeight: '600',
-    color: 'var(--primary-blue)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-  },
 };
 
 // Add keyframe animations

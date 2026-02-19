@@ -10,9 +10,6 @@ const corsHeaders = {
 type NotificationEvent =
   | 'new_post'
   | 'post_liked'
-  | 'post_commented'
-  | 'comment_replied'
-  | 'bookmarked_post_commented'
   | 'direct_message'
   | 'group_message'
   | 'chat_member_added'
@@ -34,11 +31,6 @@ interface NotificationPayload {
   post_id?: string;
   post_author_id?: string;
   post_preview?: string;
-
-  // Comment-related
-  comment_id?: string;
-  comment_text?: string;
-  parent_comment_author_id?: string;
 
   // Chat-related
   chat_id?: string;
@@ -113,16 +105,6 @@ serve(async (req) => {
       return data.map(u => u.id);
     };
 
-    // Helper to get users who bookmarked a post
-    const getBookmarkUserIds = async (postId: string): Promise<string[]> => {
-      const { data, error } = await supabase.from('post_bookmarks').select('user_id').eq('post_id', postId);
-      if (error) {
-        console.error("Error fetching bookmarks:", error);
-        return [];
-      }
-      return data.map(b => b.user_id);
-    };
-
     // Helper to get chat member IDs
     const getChatMemberIds = async (chatId: string, excludeUserId?: string): Promise<string[]> => {
       let query = supabase.from('chat_members').select('user_id').eq('chat_id', chatId);
@@ -194,51 +176,6 @@ serve(async (req) => {
           notification_type: 'post_like',
           data: { post_id: payload.post_id },
         });
-        break;
-      }
-
-      case 'post_commented': {
-        if (!payload.post_author_id || payload.post_author_id === payload.sender_id) break;
-
-        results.push = await callEdgeFunction('send-push-notification', {
-          user_ids: [payload.post_author_id],
-          title: 'New Comment',
-          message: `${payload.sender_name || 'Someone'} commented on your post`,
-          notification_type: 'post_comment',
-          data: { post_id: payload.post_id },
-        });
-
-        break;
-      }
-
-      case 'comment_replied': {
-        if (!payload.parent_comment_author_id || payload.parent_comment_author_id === payload.sender_id) break;
-
-        results.push = await callEdgeFunction('send-push-notification', {
-          user_ids: [payload.parent_comment_author_id],
-          title: 'Reply to Your Comment',
-          message: `${payload.sender_name || 'Someone'} replied to your comment`,
-          notification_type: 'comment_reply',
-          data: { post_id: payload.post_id },
-        });
-        break;
-      }
-
-      case 'bookmarked_post_commented': {
-        if (!payload.post_id) break;
-
-        const bookmarkUsers = await getBookmarkUserIds(payload.post_id);
-        const targetUsers = bookmarkUsers.filter(id => id !== payload.sender_id && id !== payload.post_author_id);
-
-        if (targetUsers.length > 0) {
-          results.push = await callEdgeFunction('send-push-notification', {
-            user_ids: targetUsers,
-            title: 'New Comment',
-            message: `New comment on a post you bookmarked`,
-            notification_type: 'bookmarked_comment',
-            data: { post_id: payload.post_id },
-          });
-        }
         break;
       }
 

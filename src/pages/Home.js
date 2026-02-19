@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { usePosts } from '../context/PostsContext';
 import { useAuth } from '../context/AuthContext';
 import { useActivityNotifications } from '../context/ActivityNotificationsContext';
-import { useAppSettings } from '../context/AppSettingsContext';
-import { NotificationBell, NotificationBanner, NotificationPanel, NewCommentsDivider } from '../components/ActivityNotifications';
+import { NotificationBell, NotificationBanner, NotificationPanel } from '../components/ActivityNotifications';
 import PushNotificationPrompt from '../components/PushNotificationPrompt';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Pagination, Navigation } from 'swiper/modules';
@@ -20,11 +19,6 @@ const HeartIcon = ({ filled }) => (
   </svg>
 );
 
-const CommentIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-  </svg>
-);
 
 const BookmarkIcon = ({ filled }) => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -39,18 +33,6 @@ const SearchIcon = () => (
   </svg>
 );
 
-const SendIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="22" y1="2" x2="11" y2="13" />
-    <polygon points="22 2 15 22 11 13 2 9 22 2" />
-  </svg>
-);
-
-const ChevronUpIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="18 15 12 9 6 15" />
-  </svg>
-);
 
 const UserIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -102,12 +84,6 @@ const BellIcon = ({ off }) => (
   </svg>
 );
 
-const EyeIcon = ({ filled }) => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-    <circle cx="12" cy="12" r="3" />
-  </svg>
-);
 
 const CheckIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -130,55 +106,18 @@ const Post = ({ post, currentUserId, isAdmin, onEditPost, organizations }) => {
     isPostLiked,
     toggleBookmark,
     isPostBookmarked,
-    addComment,
-    deleteComment,
     pinPost,
     unpinPost,
     deletePost,
-    togglePostMute,
-    togglePostWatch,
-    isPostMuted,
-    isPostWatching,
-    globalPushCommentsEnabled,
   } = usePosts();
 
-  const {
-    trackPostRead,
-    getNewCommentsStartIndex,
-  } = useActivityNotifications();
-
-  const { canDeleteComments } = useAppSettings();
-
-  const [showComments, setShowComments] = useState(false);
-  const [newComment, setNewComment] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [visibleComments, setVisibleComments] = useState(3);
   const [showMenu, setShowMenu] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackText, setFeedbackText] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showCommentDeleteConfirm, setShowCommentDeleteConfirm] = useState(null); // comment id to delete
-  const [newDividerIndex, setNewDividerIndex] = useState(null);
 
   const isLiked = isPostLiked(post.id);
   const isBookmarked = isPostBookmarked(post.id);
-
-  // Track when comments are viewed and set the "New" divider position
-  useEffect(() => {
-    if (showComments && post.comments?.length > 0) {
-      const startIndex = getNewCommentsStartIndex(post.id);
-      if (startIndex < post.comments.length) {
-        setNewDividerIndex(startIndex);
-      } else {
-        setNewDividerIndex(null);
-      }
-      // Track this read after a short delay (so user actually sees the comments)
-      const timer = setTimeout(() => {
-        trackPostRead(post.id, post.comments.length);
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [showComments, post.id, post.comments?.length, trackPostRead, getNewCommentsStartIndex]);
 
   const handlePin = () => {
     if (post.isPinned) {
@@ -227,33 +166,6 @@ const Post = ({ post, currentUserId, isAdmin, onEditPost, organizations }) => {
     toggleBookmark(post.id);
   };
 
-  const handleAddComment = async () => {
-    if (!newComment.trim() || isSubmitting) return;
-
-    setIsSubmitting(true);
-    try {
-      await addComment(post.id, newComment);
-      setNewComment('');
-      // Immediately update the read count so our own comment doesn't show as "New"
-      trackPostRead(post.id, (post.comments?.length || 0) + 1);
-    } catch (err) {
-      console.error('Error adding comment:', err);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleLoadMore = () => {
-    setVisibleComments(prev => prev + 5);
-  };
-
-  // Get the most recent comment for preview (last in array since oldest-first order)
-  const previewComment = post.comments?.[post.comments.length - 1];
-  const totalComments = post.commentsCount || post.comments?.length || 0;
-  // Show most recent comments, slice from end of array
-  const startIndex = Math.max(0, (post.comments?.length || 0) - visibleComments);
-  const displayedComments = post.comments?.slice(startIndex) || [];
-  const hasMoreComments = startIndex > 0;
 
   return (
     <article id={`post-${post.id}`} style={styles.post}>
@@ -333,30 +245,6 @@ const Post = ({ post, currentUserId, isAdmin, onEditPost, organizations }) => {
                     </button>
                   </>
                 )}
-                {/* Show Mute if global ON, Show Watch if global OFF */}
-                {globalPushCommentsEnabled ? (
-                  <button
-                    style={styles.menuItem}
-                    onClick={() => {
-                      togglePostMute(post.id);
-                      setShowMenu(false);
-                    }}
-                  >
-                    <BellIcon off={isPostMuted(post.id)} />
-                    <span>{isPostMuted(post.id) ? 'Unmute Notifications' : 'Mute Notifications'}</span>
-                  </button>
-                ) : (
-                  <button
-                    style={styles.menuItem}
-                    onClick={() => {
-                      togglePostWatch(post.id);
-                      setShowMenu(false);
-                    }}
-                  >
-                    <EyeIcon filled={isPostWatching(post.id)} />
-                    <span>{isPostWatching(post.id) ? 'Stop Watching' : 'Watch Post'}</span>
-                  </button>
-                )}
               </div>
             </>
           )}
@@ -409,30 +297,6 @@ const Post = ({ post, currentUserId, isAdmin, onEditPost, organizations }) => {
                 Cancel
               </button>
               <button style={styles.deleteConfirmBtn} onClick={confirmDelete}>
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Comment Delete Confirmation Modal */}
-      {showCommentDeleteConfirm && (
-        <div style={styles.feedbackOverlay} onClick={() => setShowCommentDeleteConfirm(null)}>
-          <div style={styles.deleteModal} onClick={e => e.stopPropagation()}>
-            <div style={styles.deleteIconContainer}>
-              <TrashIcon />
-            </div>
-            <h3 style={styles.deleteTitle}>Delete Comment?</h3>
-            <p style={styles.deleteSubtitle}>This action cannot be undone. The comment will be permanently removed.</p>
-            <div style={styles.feedbackButtons}>
-              <button style={styles.feedbackCancelBtn} onClick={() => setShowCommentDeleteConfirm(null)}>
-                Cancel
-              </button>
-              <button style={styles.deleteConfirmBtn} onClick={() => {
-                deleteComment(post.id, showCommentDeleteConfirm);
-                setShowCommentDeleteConfirm(null);
-              }}>
                 Delete
               </button>
             </div>
@@ -525,7 +389,6 @@ const Post = ({ post, currentUserId, isAdmin, onEditPost, organizations }) => {
           </span>
           {post.likes} likes
         </span>
-        <span style={styles.stat}>{totalComments} comments</span>
       </div>
 
       {/* Action Buttons */}
@@ -541,13 +404,6 @@ const Post = ({ post, currentUserId, isAdmin, onEditPost, organizations }) => {
           <span>{isLiked ? 'Liked' : 'Like'}</span>
         </button>
         <button
-          style={styles.actionButton}
-          onClick={() => setShowComments(!showComments)}
-        >
-          <CommentIcon />
-          <span>Comment</span>
-        </button>
-        <button
           style={{
             ...styles.actionButton,
             ...(isBookmarked ? styles.actionButtonBookmarked : {}),
@@ -559,115 +415,6 @@ const Post = ({ post, currentUserId, isAdmin, onEditPost, organizations }) => {
         </button>
       </div>
 
-      {/* Comment Preview (when collapsed) */}
-      {!showComments && previewComment && (
-        <div
-          style={styles.commentPreview}
-          onClick={() => setShowComments(true)}
-        >
-          <div style={styles.commentPreviewRow}>
-            <span style={styles.commentPreviewAuthor}>{previewComment.author}</span>
-            <span style={styles.commentPreviewText}>{previewComment.text}</span>
-          </div>
-          {totalComments > 1 && (
-            <span style={styles.commentPreviewMore}>
-              View all {totalComments} comments
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Expanded Comments Section */}
-      {showComments && (
-        <div style={styles.commentsSection}>
-          {/* Comments list */}
-          {displayedComments.length > 0 ? (
-            <div style={styles.commentsList}>
-              {/* Load older comments button at top */}
-              {hasMoreComments && (
-                <button
-                  style={styles.loadMoreButton}
-                  onClick={handleLoadMore}
-                >
-                  Load older comments ({startIndex} more)
-                </button>
-              )}
-
-              {displayedComments.map((comment, idx) => {
-                // Calculate absolute index in all comments
-                const absoluteIndex = startIndex + idx;
-                // Show "New" divider before this comment if it's the first new one
-                const showNewDivider = newDividerIndex !== null && absoluteIndex === newDividerIndex;
-                // Check if current user can delete this comment
-                const canDelete = canDeleteComments(comment.userId);
-
-                return (
-                  <React.Fragment key={comment.id}>
-                    {showNewDivider && <NewCommentsDivider />}
-                    <div style={styles.comment}>
-                      <div style={styles.commentBubble}>
-                        <div style={styles.commentHeader}>
-                          <span style={styles.commentAuthor}>{comment.author}</span>
-                          <span style={styles.commentTime}>{comment.timeAgo}</span>
-                          {canDelete && (
-                            <button
-                              style={styles.commentDeleteBtn}
-                              onClick={() => setShowCommentDeleteConfirm(comment.id)}
-                              title="Delete comment"
-                            >
-                              <TrashIcon />
-                            </button>
-                          )}
-                        </div>
-                        <p style={styles.commentText}>{comment.text}</p>
-                      </div>
-                    </div>
-                  </React.Fragment>
-                );
-              })}
-            </div>
-          ) : (
-            <p style={styles.noComments}>No comments yet. Be the first!</p>
-          )}
-
-          {/* Add comment input at bottom */}
-          <div style={styles.addCommentRow}>
-            <textarea
-              placeholder="Add a comment..."
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              style={styles.commentInput}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleAddComment();
-                }
-              }}
-              disabled={isSubmitting}
-              rows={1}
-            />
-            <button
-              style={{
-                ...styles.sendButton,
-                opacity: newComment.trim() && !isSubmitting ? 1 : 0.5,
-              }}
-              onClick={handleAddComment}
-              disabled={!newComment.trim() || isSubmitting}
-            >
-              <SendIcon />
-            </button>
-          </div>
-
-          {/* Collapse button */}
-          <button
-            style={styles.collapseButton}
-            onClick={() => setShowComments(false)}
-          >
-            <ChevronUpIcon />
-            <span>Hide comments</span>
-          </button>
-        </div>
-      )}
     </article>
   );
 };
@@ -3024,164 +2771,6 @@ const styles = {
   },
   actionButtonBookmarked: {
     color: 'var(--primary-blue)',
-  },
-  // Comment preview styles
-  commentPreview: {
-    padding: '12px 16px',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s ease',
-  },
-  commentPreviewRow: {
-    display: 'flex',
-    gap: '6px',
-    flexWrap: 'wrap',
-  },
-  commentPreviewAuthor: {
-    fontSize: '13px',
-    fontWeight: '600',
-    color: 'var(--text-dark)',
-  },
-  commentPreviewText: {
-    fontSize: '13px',
-    color: 'var(--text-muted)',
-    flex: 1,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  commentPreviewMore: {
-    display: 'block',
-    fontSize: '13px',
-    color: 'var(--primary-blue)',
-    fontWeight: '500',
-    marginTop: '6px',
-  },
-  // Comments section styles
-  commentsSection: {
-    padding: '16px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-    backgroundColor: '#fafbfc',
-  },
-  addCommentRow: {
-    display: 'flex',
-    alignItems: 'flex-end',
-    gap: '10px',
-  },
-  commentInput: {
-    flex: 1,
-    padding: '10px 14px',
-    borderRadius: '16px',
-    border: '1px solid #e2e8f0',
-    outline: 'none',
-    fontSize: '14px',
-    color: 'var(--text-dark)',
-    backgroundColor: '#ffffff',
-    resize: 'none',
-    minHeight: '40px',
-    maxHeight: '120px',
-    overflow: 'auto',
-    fontFamily: 'inherit',
-    lineHeight: '1.4',
-  },
-  sendButton: {
-    width: '36px',
-    height: '36px',
-    borderRadius: '50%',
-    backgroundColor: 'var(--primary-blue)',
-    border: 'none',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
-    color: '#ffffff',
-    transition: 'opacity 0.2s ease',
-  },
-  commentsList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '10px',
-  },
-  comment: {
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  commentBubble: {
-    backgroundColor: '#ffffff',
-    borderRadius: '12px',
-    padding: '10px 14px',
-    border: '1px solid #e2e8f0',
-  },
-  commentHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: '4px',
-  },
-  commentAuthor: {
-    fontSize: '13px',
-    fontWeight: '600',
-    color: 'var(--text-dark)',
-  },
-  commentTime: {
-    fontSize: '11px',
-    color: 'var(--text-light)',
-    flex: 1,
-  },
-  commentDeleteBtn: {
-    width: '24px',
-    height: '24px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    color: 'var(--text-light)',
-    padding: 0,
-    marginLeft: '8px',
-    transition: 'all 0.2s',
-  },
-  commentText: {
-    fontSize: '14px',
-    color: '#475569',
-    margin: 0,
-    lineHeight: '1.4',
-    whiteSpace: 'pre-wrap',
-  },
-  loadMoreButton: {
-    padding: '10px',
-    backgroundColor: 'transparent',
-    border: '1px dashed #e2e8f0',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    color: 'var(--text-muted)',
-    fontSize: '13px',
-    fontWeight: '500',
-    textAlign: 'center',
-    transition: 'all 0.2s ease',
-  },
-  noComments: {
-    textAlign: 'center',
-    color: 'var(--text-light)',
-    fontSize: '14px',
-    padding: '16px 0',
-    margin: 0,
-  },
-  collapseButton: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '6px',
-    padding: '8px',
-    backgroundColor: 'transparent',
-    border: 'none',
-    cursor: 'pointer',
-    color: 'var(--text-muted)',
-    fontSize: '13px',
-    fontWeight: '500',
   },
   // Loading skeleton styles
   postSkeleton: {

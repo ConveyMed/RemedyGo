@@ -43,7 +43,7 @@ export default function useFeedActivity() {
         return
       }
 
-      // Get likes and comments for these posts
+      // Get likes for these posts
       const postIds = posts.map(p => p.id)
 
       let likesQuery = supabase
@@ -59,36 +59,20 @@ export default function useFeedActivity() {
 
       if (likesError) throw likesError
 
-      let commentsQuery = supabase
-        .from('post_comments')
-        .select('post_id, user_id')
-        .in('post_id', postIds)
-
-      if (orgUserIds) {
-        commentsQuery = commentsQuery.in('user_id', orgUserIds)
-      }
-
-      const { data: comments, error: commentsError } = await commentsQuery
-
-      if (commentsError) throw commentsError
-
       // Calculate engagement per post
       const postEngagement = posts.map(post => {
         const postLikes = (likes || []).filter(l => l.post_id === post.id)
-        const postComments = (comments || []).filter(c => c.post_id === post.id)
 
         const uniqueEngagers = new Set([
           ...postLikes.map(l => l.user_id),
-          ...postComments.map(c => c.user_id)
         ])
 
-        const points = postLikes.length + postComments.length
+        const points = postLikes.length
 
         return {
           id: post.id,
           title: post.content?.substring(0, 50) || 'Untitled',
           likes: postLikes.length,
-          comments: postComments.length,
           points,
           uniqueEngagers: uniqueEngagers.size,
           hasEngagement: uniqueEngagers.size > 0

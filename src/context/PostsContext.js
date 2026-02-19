@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { supabase } from '../config/supabase';
-import { notifyNewPost, notifyPostLiked, notifyPostCommented } from '../services/notifications';
+import { notifyNewPost, notifyPostLiked } from '../services/notifications';
 
 const PostsContext = createContext({});
 
@@ -41,15 +41,6 @@ export const PostsProvider = ({ children }) => {
   const [userLikes, setUserLikes] = useState(new Set());
   const [userBookmarks, setUserBookmarks] = useState(new Set());
 
-  // Comments cache by post ID (for future use)
-  // eslint-disable-next-line no-unused-vars
-  const [commentsCache, setCommentsCache] = useState({});
-
-  // Track user's per-post notification settings (muted/watching posts)
-  const [userPostNotificationSettings, setUserPostNotificationSettings] = useState({});
-
-  // Track user's global push_post_comments preference (for showing mute vs watch button)
-  const [globalPushCommentsEnabled, setGlobalPushCommentsEnabled] = useState(true);
 
   // Load user's likes and bookmarks
   const loadUserInteractions = useCallback(async () => {
@@ -80,129 +71,12 @@ export const PostsProvider = ({ children }) => {
     }
   }, [user?.id]);
 
-  // Load user's per-post notification settings (muted/watching) and global preference
-  const loadUserPostNotificationSettings = useCallback(async () => {
-    if (!user?.id) {
-      setUserPostNotificationSettings({});
-      setGlobalPushCommentsEnabled(true);
-      return;
-    }
-
-    try {
-      // Load per-post settings and global preference in parallel
-      const [postSettingsResult, globalPrefResult] = await Promise.all([
-        supabase
-          .from('post_notification_settings')
-          .select('post_id, is_muted, is_watching')
-          .eq('user_id', user.id),
-        supabase
-          .from('user_notification_preferences')
-          .select('push_post_comments')
-          .eq('user_id', user.id)
-          .single()
-      ]);
-
-      // Handle per-post settings
-      if (!postSettingsResult.error) {
-        const settingsMap = (postSettingsResult.data || []).reduce((acc, s) => {
-          acc[s.post_id] = { isMuted: s.is_muted, isWatching: s.is_watching };
-          return acc;
-        }, {});
-        setUserPostNotificationSettings(settingsMap);
-      }
-
-      // Handle global preference (default true if no row or error)
-      if (!globalPrefResult.error && globalPrefResult.data) {
-        setGlobalPushCommentsEnabled(globalPrefResult.data.push_post_comments ?? true);
-      } else {
-        setGlobalPushCommentsEnabled(true);
-      }
-    } catch (err) {
-      console.error('Error loading post notification settings:', err);
-    }
-  }, [user?.id]);
-
-  // Toggle mute for a post
-  const togglePostMute = async (postId) => {
-    if (!user?.id) return;
-
-    const currentSetting = userPostNotificationSettings[postId] || { isMuted: false, isWatching: false };
-    const newMuted = !currentSetting.isMuted;
-
-    // Optimistic update
-    setUserPostNotificationSettings(prev => ({
-      ...prev,
-      [postId]: { ...currentSetting, isMuted: newMuted }
-    }));
-
-    try {
-      const { error } = await supabase
-        .from('post_notification_settings')
-        .upsert({
-          post_id: postId,
-          user_id: user.id,
-          is_muted: newMuted,
-          is_watching: currentSetting.isWatching,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'post_id,user_id' });
-
-      if (error) throw error;
-    } catch (err) {
-      // Revert on error
-      setUserPostNotificationSettings(prev => ({
-        ...prev,
-        [postId]: currentSetting
-      }));
-      console.error('Error toggling post mute:', err);
-    }
-  };
-
-  // Toggle watch for a post
-  const togglePostWatch = async (postId) => {
-    if (!user?.id) return;
-
-    const currentSetting = userPostNotificationSettings[postId] || { isMuted: false, isWatching: false };
-    const newWatching = !currentSetting.isWatching;
-
-    // Optimistic update
-    setUserPostNotificationSettings(prev => ({
-      ...prev,
-      [postId]: { ...currentSetting, isWatching: newWatching }
-    }));
-
-    try {
-      const { error } = await supabase
-        .from('post_notification_settings')
-        .upsert({
-          post_id: postId,
-          user_id: user.id,
-          is_muted: currentSetting.isMuted,
-          is_watching: newWatching,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'post_id,user_id' });
-
-      if (error) throw error;
-    } catch (err) {
-      // Revert on error
-      setUserPostNotificationSettings(prev => ({
-        ...prev,
-        [postId]: currentSetting
-      }));
-      console.error('Error toggling post watch:', err);
-    }
-  };
-
-  // Helper to check if post is muted/watching
-  const isPostMuted = (postId) => userPostNotificationSettings[postId]?.isMuted || false;
-  const isPostWatching = (postId) => userPostNotificationSettings[postId]?.isWatching || false;
-
-  // Load user interactions when user changes (likes/bookmarks/post notification settings)
+  // Load user interactions when user changes
   useEffect(() => {
     if (user?.id) {
       loadUserInteractions();
-      loadUserPostNotificationSettings();
     }
-  }, [user?.id, loadUserInteractions, loadUserPostNotificationSettings]);
+  }, [user?.id, loadUserInteractions]);
 
   // Initial load (only once) and reload when org changes
   useEffect(() => {
@@ -247,69 +121,25 @@ export const PostsProvider = ({ children }) => {
         return;
       }
 
-      // Get unique user IDs and post IDs
+      // Get unique user IDs
       const userIds = [...new Set(postsData?.map(p => p.user_id).filter(Boolean))];
-      const postIds = postsData?.map(p => p.id) || [];
 
-      // Fetch users and comments in parallel
-      const [usersResult, commentsResult] = await Promise.all([
-        userIds.length > 0
-          ? supabase.from('users').select('id, first_name, last_name, distributor, profile_image_url').in('id', userIds)
-          : Promise.resolve({ data: [] }),
-        postIds.length > 0
-          ? supabase.from('post_comments').select('*').in('post_id', postIds).order('created_at', { ascending: true })
-          : Promise.resolve({ data: [] })
-      ]);
+      let usersMap = {};
+      if (userIds.length > 0) {
+        const { data: usersData } = await supabase
+          .from('users')
+          .select('id, first_name, last_name, distributor, profile_image_url')
+          .in('id', userIds);
 
-      // Build users map
-      const usersMap = (usersResult.data || []).reduce((acc, u) => {
-        acc[u.id] = u;
-        return acc;
-      }, {});
-
-      // Process comments
-      let commentsPreviewMap = {};
-      const commentsData = commentsResult.data || [];
-
-      if (commentsData.length > 0) {
-        // Get unique commenter IDs (filter out ones we already have)
-        const commenterIds = [...new Set(commentsData.map(c => c.user_id).filter(id => id && !usersMap[id]))];
-
-        // Fetch any missing commenter profiles
-        if (commenterIds.length > 0) {
-          const { data: commentersData } = await supabase
-            .from('users')
-            .select('id, first_name, last_name, profile_image_url')
-            .in('id', commenterIds);
-
-          (commentersData || []).forEach(u => {
-            usersMap[u.id] = u;
-          });
-        }
-
-        // Group by post_id - keep all comments
-        commentsData.forEach(comment => {
-          const commenter = usersMap[comment.user_id];
-          const formatted = {
-            id: comment.id,
-            author: commenter ? `${commenter.first_name || ''} ${commenter.last_name || ''}`.trim() : 'Unknown',
-            authorAvatar: commenter?.profile_image_url || null,
-            text: comment.content,
-            timeAgo: getTimeAgo(comment.created_at),
-            userId: comment.user_id,
-          };
-
-          if (!commentsPreviewMap[comment.post_id]) {
-            commentsPreviewMap[comment.post_id] = [];
-          }
-          commentsPreviewMap[comment.post_id].push(formatted);
-        });
+        usersMap = (usersData || []).reduce((acc, u) => {
+          acc[u.id] = u;
+          return acc;
+        }, {});
       }
 
       // Transform to match our post format
       const formattedPosts = (postsData || []).map(post => {
         const author = usersMap[post.user_id];
-        const comments = commentsPreviewMap[post.id] || [];
 
         return {
           id: post.id,
@@ -326,8 +156,6 @@ export const PostsProvider = ({ children }) => {
           video: post.videos?.[0] || null,
           timeAgo: getTimeAgo(post.created_at),
           likes: post.likes_count || 0,
-          commentsCount: post.comments_count || 0,
-          comments: comments, // All comments loaded
           userId: post.user_id,
           isPinned: post.is_pinned || false,
           notifyPush: post.notify_push || false,
@@ -562,121 +390,6 @@ export const PostsProvider = ({ children }) => {
     }
   };
 
-  // Add a comment
-  const addComment = async (postId, content) => {
-    if (!user?.id || !content.trim()) return;
-
-    const tempId = `temp-${Date.now()}`;
-    const newComment = {
-      id: tempId,
-      author: `${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim(),
-      authorAvatar: userProfile?.profile_image_url || null,
-      text: content,
-      timeAgo: 'Just now',
-      userId: user.id,
-    };
-
-    // Optimistic update - add to end (oldest first, newest at bottom)
-    setPosts(prev => prev.map(p => {
-      if (p.id === postId) {
-        return {
-          ...p,
-          comments: [...p.comments, newComment],
-          commentsCount: p.commentsCount + 1,
-        };
-      }
-      return p;
-    }));
-
-    try {
-      const { data, error } = await supabase
-        .from('post_comments')
-        .insert({
-          post_id: postId,
-          user_id: user.id,
-          content: content.trim(),
-        })
-        .select()
-        .single();
-
-      if (error) {
-        // Revert on error
-        setPosts(prev => prev.map(p => {
-          if (p.id === postId) {
-            return {
-              ...p,
-              comments: p.comments.filter(c => c.id !== tempId),
-              commentsCount: Math.max(0, p.commentsCount - 1),
-            };
-          }
-          return p;
-        }));
-        console.error('Error adding comment:', error);
-        throw error;
-      }
-
-      // Update with real ID
-      setPosts(prev => prev.map(p => {
-        if (p.id === postId) {
-          return {
-            ...p,
-            comments: p.comments.map(c =>
-              c.id === tempId ? { ...c, id: data.id } : c
-            ),
-          };
-        }
-        return p;
-      }));
-
-      // Send notification to ALL users (except commenter) - new enhanced version
-      const post = posts.find(p => p.id === postId);
-      if (post) {
-        notifyPostCommented({
-          senderId: user.id,
-          senderName: `${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim(),
-          postId,
-          postAuthorId: post.userId,
-          commentText: content.trim().substring(0, 100),
-        }).catch(err => console.error('Notification error:', err));
-      }
-    } catch (err) {
-      console.error('Error adding comment:', err);
-      throw err;
-    }
-  };
-
-  // Delete a comment
-  const deleteComment = async (postId, commentId) => {
-    if (!user?.id) return;
-
-    // Optimistic update
-    setPosts(prev => prev.map(p => {
-      if (p.id === postId) {
-        return {
-          ...p,
-          comments: p.comments.filter(c => c.id !== commentId),
-          commentsCount: Math.max(0, p.commentsCount - 1),
-        };
-      }
-      return p;
-    }));
-
-    try {
-      const { error } = await supabase
-        .from('post_comments')
-        .delete()
-        .eq('id', commentId)
-        .eq('user_id', user.id);
-
-      if (error) {
-        console.error('Error deleting comment:', error);
-        // Could revert here but would need to cache the comment
-      }
-    } catch (err) {
-      console.error('Error deleting comment:', err);
-    }
-  };
-
   const addPost = async (content, media = [], links = [], options = {}) => {
     if (!user?.id) return;
 
@@ -736,8 +449,6 @@ export const PostsProvider = ({ children }) => {
         video: videos[0] || null,
         timeAgo: 'Just now',
         likes: 0,
-        commentsCount: 0,
-        comments: [],
         userId: user.id,
         scheduledAt: data.scheduled_at,
         organizationId: data.organization_id,
@@ -1010,9 +721,6 @@ export const PostsProvider = ({ children }) => {
     isPostBookmarked,
     userBookmarks,
     getBookmarkedPosts,
-    // Comments
-    addComment,
-    deleteComment,
     // Pin/Archive/Update
     pinPost,
     unpinPost,
@@ -1021,12 +729,6 @@ export const PostsProvider = ({ children }) => {
     // Scheduled posts
     updateScheduledPost,
     deleteScheduledPost,
-    // Post notification settings (mute/watch)
-    togglePostMute,
-    togglePostWatch,
-    isPostMuted,
-    isPostWatching,
-    globalPushCommentsEnabled,
   };
 
   return <PostsContext.Provider value={value}>{children}</PostsContext.Provider>;

@@ -234,8 +234,6 @@ function AppContent() {
         switch (data.type) {
           case 'new_post':
           case 'post_liked':
-          case 'post_commented':
-          case 'comment_replied':
             // Navigate to home and scroll to post
             navigate('/home');
             if (data.post_id) {
