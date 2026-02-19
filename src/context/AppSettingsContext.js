@@ -106,34 +106,11 @@ export const AppSettingsProvider = ({ children }) => {
     }
   }, [canUpdateSettings, user?.id]);
 
-  // Get comment delete permission
-  const getCommentDeletePermission = useCallback(() => {
-    return settings.comment_delete_permission || 'admins_only';
-  }, [settings]);
-
-  // Check if current user can delete comments
-  const canDeleteComments = useCallback((commentUserId) => {
-    // Users can always delete their own comments
-    if (commentUserId === user?.id) return true;
-
-    // Check setting
-    const permission = getCommentDeletePermission();
-
-    if (permission === 'all_users') {
-      return true;
-    }
-
-    // admins_only - only admins can delete others' comments
-    return isAdmin;
-  }, [user?.id, isAdmin, getCommentDeletePermission]);
-
   const value = {
     settings,
     loading,
     loadSettings,
     updateSetting,
-    getCommentDeletePermission,
-    canDeleteComments,
     isAdmin,
   };
 

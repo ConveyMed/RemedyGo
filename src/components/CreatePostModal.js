@@ -286,7 +286,7 @@ const CreatePostModal = () => {
 
       // Handle organization posting
       if (selectedOrg === 'both') {
-        // Create separate posts for each organization (isolated comments per org)
+        // Create separate posts for each organization
         for (const org of organizations) {
           await addPost(content.trim(), uploadedMedia, links, {
             notifyPush,

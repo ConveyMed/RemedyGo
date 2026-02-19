@@ -19,7 +19,6 @@ export const ActivityNotificationsProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [userState, setUserState] = useState(null); // last_checked_at, last_banner_shown_at
   const [notificationReads, setNotificationReads] = useState(new Set()); // Set of read notification IDs
-  const [postReads, setPostReads] = useState({}); // { post_id: { last_seen_comment_count, last_read_at } }
   const [loading, setLoading] = useState(true);
 
   // Banner state
@@ -30,7 +29,7 @@ export const ActivityNotificationsProvider = ({ children }) => {
   const [panelOpen, setPanelOpen] = useState(false);
 
   // Scroll target (when user taps a notification)
-  const [scrollTarget, setScrollTarget] = useState(null); // { postId, commentIndex }
+  const [scrollTarget, setScrollTarget] = useState(null); // { postId }
 
   // Track if initial load done
   const initialLoadDone = useRef(false);
@@ -43,7 +42,6 @@ export const ActivityNotificationsProvider = ({ children }) => {
       setNotifications([]);
       setUserState(null);
       setNotificationReads(new Set());
-      setPostReads({});
       setLoading(false);
     }
   }, [user?.id]);
@@ -56,7 +54,7 @@ export const ActivityNotificationsProvider = ({ children }) => {
       setLoading(true);
 
       // Load in parallel
-      const [notificationsResult, stateResult, postReadsResult, notifReadsResult] = await Promise.all([
+      const [notificationsResult, stateResult, notifReadsResult] = await Promise.all([
         supabase
           .from('activity_notifications')
           .select('*')
@@ -67,10 +65,6 @@ export const ActivityNotificationsProvider = ({ children }) => {
           .select('*')
           .eq('user_id', user.id)
           .single(),
-        supabase
-          .from('user_post_reads')
-          .select('*')
-          .eq('user_id', user.id),
         supabase
           .from('notification_reads')
           .select('notification_id')
@@ -125,15 +119,6 @@ export const ActivityNotificationsProvider = ({ children }) => {
         setUserState(newState);
       } else if (!stateResult.error) {
         setUserState(stateResult.data);
-      }
-
-      // Process post reads
-      if (!postReadsResult.error) {
-        const readsMap = {};
-        (postReadsResult.data || []).forEach(r => {
-          readsMap[r.post_id] = r;
-        });
-        setPostReads(readsMap);
       }
 
       // Process notification reads
@@ -241,43 +226,16 @@ export const ActivityNotificationsProvider = ({ children }) => {
       ...n,
       isRead: notificationReads.has(n.id)
     }));
-    const newComments = newItems.filter(n => n.type === 'new_comment');
-
-    // Group comments by post
-    const commentsByPost = {};
-    newComments.forEach(n => {
-      if (!commentsByPost[n.post_id]) {
-        commentsByPost[n.post_id] = {
-          post: n.post,
-          comments: [],
-          latestActor: n.actor,
-        };
-      }
-      commentsByPost[n.post_id].comments.push({
-        ...n,
-        isRead: notificationReads.has(n.id)
-      });
-      if (new Date(n.created_at) > new Date(commentsByPost[n.post_id].latestTime || 0)) {
-        commentsByPost[n.post_id].latestActor = n.actor;
-        commentsByPost[n.post_id].latestTime = n.created_at;
-      }
-    });
 
     // Group older items (with read status)
     const olderPosts = olderItems.filter(n => n.type === 'new_post').map(n => ({
       ...n,
       isRead: notificationReads.has(n.id)
     }));
-    const olderComments = olderItems.filter(n => n.type === 'new_comment').map(n => ({
-      ...n,
-      isRead: notificationReads.has(n.id)
-    }));
 
     return {
       newPosts,
-      commentsByPost,
       olderPosts,
-      olderComments,
       totalNew: newItems.length,
       totalOlder: olderItems.length,
     };
@@ -425,75 +383,15 @@ export const ActivityNotificationsProvider = ({ children }) => {
     // Set scroll target
     if (notification.type === 'new_post') {
       setScrollTarget({ postId: notification.post_id, type: 'post' });
-    } else if (notification.type === 'new_comment') {
-      const postRead = postReads[notification.post_id];
-      const startIndex = postRead?.last_seen_comment_count || 0;
-      setScrollTarget({
-        postId: notification.post_id,
-        type: 'comment',
-        commentStartIndex: startIndex
-      });
     }
 
     return scrollTarget;
-  }, [markAsRead, closePanel, postReads, scrollTarget]);
+  }, [markAsRead, closePanel, scrollTarget]);
 
   // Clear scroll target
   const clearScrollTarget = useCallback(() => {
     setScrollTarget(null);
   }, []);
-
-  // Track when user views a post's comments
-  const trackPostRead = useCallback(async (postId, commentCount) => {
-    if (!user?.id) return;
-
-    const now = new Date().toISOString();
-
-    setPostReads(prev => ({
-      ...prev,
-      [postId]: {
-        post_id: postId,
-        user_id: user.id,
-        last_seen_comment_count: commentCount,
-        last_read_at: now,
-      }
-    }));
-
-    try {
-      await supabase
-        .from('user_post_reads')
-        .upsert({
-          user_id: user.id,
-          post_id: postId,
-          last_seen_comment_count: commentCount,
-          last_read_at: now,
-        }, {
-          onConflict: 'user_id,post_id'
-        });
-    } catch (err) {
-      console.error('Error tracking post read:', err);
-    }
-  }, [user?.id]);
-
-  // Get the "new comments" start index for a post
-  const getNewCommentsStartIndex = useCallback((postId) => {
-    const postRead = postReads[postId];
-    return postRead?.last_seen_comment_count || 0;
-  }, [postReads]);
-
-  // Check if a post has new comments
-  const hasNewComments = useCallback((postId, currentCommentCount) => {
-    const postRead = postReads[postId];
-    if (!postRead) return currentCommentCount > 0;
-    return currentCommentCount > postRead.last_seen_comment_count;
-  }, [postReads]);
-
-  // Get new comments count for a post
-  const getNewCommentsCount = useCallback((postId, currentCommentCount) => {
-    const postRead = postReads[postId];
-    if (!postRead) return currentCommentCount;
-    return Math.max(0, currentCommentCount - postRead.last_seen_comment_count);
-  }, [postReads]);
 
   const value = {
     // Data
@@ -535,12 +433,6 @@ export const ActivityNotificationsProvider = ({ children }) => {
     // Scroll
     scrollTarget,
     clearScrollTarget,
-
-    // Post reads (for "New" divider)
-    trackPostRead,
-    getNewCommentsStartIndex,
-    hasNewComments,
-    getNewCommentsCount,
 
     // Refresh
     refresh: loadActivityData,

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
-import { useAppSettings } from '../context/AppSettingsContext';
 import { useAuth } from '../context/AuthContext';
 
 const BackIcon = () => (
@@ -59,7 +58,6 @@ const TrashIcon = () => (
 
 const ManageUsers = () => {
   const navigate = useNavigate();
-  const { getCommentDeletePermission, updateSetting } = useAppSettings();
   const { organizations, getOrganization } = useAuth();
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -79,9 +77,6 @@ const ManageUsers = () => {
   const [editRole, setEditRole] = useState('member');
   const [editOrganization, setEditOrganization] = useState('');
   const [editIsFullLine, setEditIsFullLine] = useState(false);
-
-  // Settings
-  const commentDeletePermission = getCommentDeletePermission();
 
   useEffect(() => {
     loadUsers();
@@ -267,40 +262,6 @@ const ManageUsers = () => {
           {showSettings && (
             <div style={styles.settingsPanel}>
               <h3 style={styles.settingsPanelTitle}>App Settings</h3>
-
-              <div style={styles.settingItem}>
-                <div style={styles.settingInfo}>
-                  <div style={styles.settingLabel}>
-                    <TrashIcon />
-                    <span>Remove Comments from Posts</span>
-                  </div>
-                  <p style={styles.settingDescription}>
-                    Control who can delete comments on posts
-                  </p>
-                </div>
-                <div style={styles.settingOptions}>
-                  <button
-                    style={{
-                      ...styles.settingOption,
-                      ...(commentDeletePermission === 'all_users' ? styles.settingOptionActive : {}),
-                    }}
-                    onClick={() => updateSetting('comment_delete_permission', 'all_users')}
-                  >
-                    <span>All Users</span>
-                    {commentDeletePermission === 'all_users' && <CheckIcon />}
-                  </button>
-                  <button
-                    style={{
-                      ...styles.settingOption,
-                      ...(commentDeletePermission === 'admins_only' ? styles.settingOptionActive : {}),
-                    }}
-                    onClick={() => updateSetting('comment_delete_permission', 'admins_only')}
-                  >
-                    <span>Admins Only</span>
-                    {commentDeletePermission === 'admins_only' && <CheckIcon />}
-                  </button>
-                </div>
-              </div>
             </div>
           )}
 
