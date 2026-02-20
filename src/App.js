@@ -40,6 +40,7 @@ import Updates from './pages/Updates';
 import ManageUpdates from './pages/ManageUpdates';
 import ManageAI from './pages/ManageAI';
 import ManageOrgCodes from './pages/ManageOrgCodes';
+import { TermsAndConditions, PrivacyPolicy, DeleteAccount } from './pages/LegalSupport';
 import ManageAnalytics from './pages/ManageAnalytics';
 import OrganizationOnboarding from './pages/OrganizationOnboarding';
 import Downloads from './pages/Downloads';
@@ -560,6 +561,27 @@ function AppContent() {
               : !isProfileComplete
                 ? <Navigate to="/profile-complete" replace />
                 : <ManageAnalytics />
+          } />
+          <Route path="/terms" element={
+            !isAuthenticated
+              ? <Navigate to="/" replace />
+              : !isProfileComplete
+                ? <Navigate to="/profile-complete" replace />
+                : <AppShell showNav={showBottomNav}><TermsAndConditions /></AppShell>
+          } />
+          <Route path="/privacy" element={
+            !isAuthenticated
+              ? <Navigate to="/" replace />
+              : !isProfileComplete
+                ? <Navigate to="/profile-complete" replace />
+                : <AppShell showNav={showBottomNav}><PrivacyPolicy /></AppShell>
+          } />
+          <Route path="/delete-account" element={
+            !isAuthenticated
+              ? <Navigate to="/" replace />
+              : !isProfileComplete
+                ? <Navigate to="/profile-complete" replace />
+                : <AppShell showNav={showBottomNav}><DeleteAccount /></AppShell>
           } />
           {/* Catch all */}
           <Route path="*" element={<Navigate to="/" replace />} />
