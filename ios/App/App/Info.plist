@@ -50,7 +50,9 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSCameraUsageDescription</key>
-	<string>RemedyGo needs access to your camera to take photos for your profile and posts.</string>
+	<string>RemedyGo needs access to your camera to take photos and videos for your profile and posts.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>RemedyGo needs access to your microphone to record video with audio.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>RemedyGo needs access to your photo library to select images for your profile and posts.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
