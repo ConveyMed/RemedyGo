@@ -128,6 +128,9 @@ function Login() {
           Sign up
         </button>
       </p>
+      <p style={{ marginTop: '24px', fontSize: '11px', color: '#94a3b8' }}>
+        Produced by <a href="https://appcatalyst.org" target="_blank" rel="noopener noreferrer" style={{ color: '#94a3b8', textDecoration: 'underline' }}>AppCatalyst</a> for ConveyMed
+      </p>
     </div>
   );
 }
