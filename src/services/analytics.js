@@ -264,13 +264,24 @@ export const logAssetEvent = async (userId, assetId, assetName, category, catego
 // ============================================
 
 /**
- * Log an AI query
+ * Log an AI query along with the AI's answer quality.
+ * confidence: 'high' | 'medium' | 'low' | 'none' (returned by ai-chat edge function).
+ * hasCitation: true when the response included a sectionTitle or pageNumber.
+ * Pass nulls if logging before the response (legacy callers).
  */
-export const logAIQuery = async (userId, queryText, productName = null) => {
+export const logAIQuery = async (
+  userId,
+  queryText,
+  productName = null,
+  confidence = null,
+  hasCitation = null
+) => {
   await insertEvent('ai_queries', {
     user_id: userId,
     query_text: queryText,
     product_name: productName,
+    confidence,
+    has_citation: hasCitation,
   });
 };
 
