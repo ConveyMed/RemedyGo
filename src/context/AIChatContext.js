@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { supabase } from '../config/supabase';
+import { useAuth } from './AuthContext';
 import { logAIQuery } from '../services/analytics';
 
 const AIChatContext = createContext();
@@ -20,8 +21,9 @@ const LOADING_STAGES = [
 ];
 
 export const AIChatProvider = ({ children }) => {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const [mode, setMode] = useState('gemini'); // 'gemini' or 'mindstudio'
+  const [mode] = useState('gemini');
   const [products, setProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -31,22 +33,54 @@ export const AIChatProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [history, setHistory] = useState([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [aiConsentAcknowledged, setAiConsentAcknowledged] = useState(false);
 
-  // Fetch products from Supabase
+  // Check if user has already acknowledged AI consent
   useEffect(() => {
+    if (!user) return;
+    const checkConsent = async () => {
+      const { data } = await supabase
+        .from('users')
+        .select('ai_consent_acknowledged')
+        .eq('id', user.id)
+        .single();
+      if (data?.ai_consent_acknowledged) {
+        setAiConsentAcknowledged(true);
+      }
+    };
+    checkConsent();
+  }, [user]);
+
+  // Acknowledge AI consent and save to Supabase
+  const acknowledgeAiConsent = useCallback(async () => {
+    if (!user) return;
+    await supabase
+      .from('users')
+      .update({ ai_consent_acknowledged: true })
+      .eq('id', user.id);
+    setAiConsentAcknowledged(true);
+  }, [user]);
+
+  // Fetch products from Supabase (wait for auth)
+  useEffect(() => {
+    if (!user) return;
+
     const fetchProducts = async () => {
       const { data, error } = await supabase
         .from('product_docs')
         .select('product_name, source_url')
         .order('product_name');
 
+      if (error) {
+        console.error('Failed to fetch products:', error);
+      }
       if (data && !error) {
         setProducts(data.map(p => p.product_name));
       }
     };
 
     fetchProducts();
-  }, []);
+  }, [user]);
 
   // Fetch chat history
   const fetchHistory = useCallback(async () => {
@@ -124,15 +158,6 @@ export const AIChatProvider = ({ children }) => {
   const closeChat = useCallback(() => setIsOpen(false), []);
   const toggleChat = useCallback(() => setIsOpen(prev => !prev), []);
 
-  const toggleMode = useCallback(() => {
-    setMode(prev => prev === 'gemini' ? 'mindstudio' : 'gemini');
-    // Reset state when switching modes
-    setSelectedProduct(null);
-    setMessages([]);
-    setCurrentConversationId(null);
-    setError(null);
-  }, []);
-
   const selectProduct = useCallback((product) => {
     setSelectedProduct(product);
     setMessages([]);
@@ -155,13 +180,6 @@ export const AIChatProvider = ({ children }) => {
     const userMessage = { role: 'user', content: question.trim() };
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
-
-    // Track AI query for analytics
-    const trackQuery = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) logAIQuery(user.id, question.trim(), selectedProduct);
-    };
-    trackQuery();
 
     setIsLoading(true);
     setError(null);
@@ -199,6 +217,21 @@ export const AIChatProvider = ({ children }) => {
 
         // Save conversation to history
         saveConversation(newMessages, selectedProduct, currentConversationId);
+
+        // Log analytics with the AI's confidence so we can surface unanswered questions later
+        const trackQuery = async () => {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            logAIQuery(
+              user.id,
+              question.trim(),
+              selectedProduct,
+              data.confidence || null,
+              Boolean(data.sectionTitle || data.pageNumber)
+            );
+          }
+        };
+        trackQuery();
       } else {
         throw new Error(data.error || 'Failed to get response');
       }
@@ -239,7 +272,6 @@ export const AIChatProvider = ({ children }) => {
     closeChat,
     toggleChat,
     mode,
-    toggleMode,
     products,
     selectedProduct,
     selectProduct,
@@ -255,6 +287,8 @@ export const AIChatProvider = ({ children }) => {
     isHistoryOpen,
     toggleHistory,
     loadFromHistory,
+    aiConsentAcknowledged,
+    acknowledgeAiConsent,
   };
 
   return (
