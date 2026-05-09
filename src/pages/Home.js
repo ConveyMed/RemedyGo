@@ -1878,7 +1878,7 @@ const Home = () => {
             )}
             {!canSwitchOrgs && currentViewOrg && (
               <span style={{
-                ...styles.orgBadge,
+                ...styles.orgBadgeHeader,
                 backgroundColor: getOrgColor(currentViewOrg.code).bg
               }}>{currentViewOrg.code}</span>
             )}
@@ -2206,7 +2206,7 @@ const styles = {
     fontWeight: '700',
     cursor: 'pointer',
   },
-  orgBadge: {
+  orgBadgeHeader: {
     backgroundColor: '#e0e7ff',
     color: 'var(--primary-blue)',
     borderRadius: '6px',
