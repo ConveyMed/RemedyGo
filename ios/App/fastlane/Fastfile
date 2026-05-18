@@ -1,0 +1,114 @@
+# iOS fastlane config for Capacitor apps.
+# Run from ios/App/ directory:
+#   fastlane status             — show latest TestFlight build number
+#   fastlane build              — web + cap sync + archive + export IPA
+#   fastlane archive_only       — just archive + IPA (skips web build, useful after manual cap sync)
+#   fastlane upload             — upload current IPA to TestFlight (waits for processing)
+#   fastlane submit             — attach build to App Store version + submit for review
+#   fastlane release            — full pipeline: build + upload + submit
+#   fastlane release_prebuilt   — archive_only + upload + submit (skips web build)
+
+default_platform(:ios)
+
+# ========================================================================
+# App Store Connect API credentials — EDIT THESE FOR THE CORRECT TEAM
+# ========================================================================
+# Chase personal:   BS7UU47M3S / cfee961c-d8e8-41bf-a456-fa625ed1414c
+# ConveyMed:        9MV2H7DUD5 / 03e68a23-cd1f-4ae3-aef0-acca2623a3c3
+ASC_KEY_ID    = "9MV2H7DUD5"
+ASC_ISSUER_ID = "03e68a23-cd1f-4ae3-aef0-acca2623a3c3"
+ASC_KEY_PATH  = File.expand_path("~/.appstoreconnect/private_keys/AuthKey_#{ASC_KEY_ID}.p8")
+
+def asc_key
+  app_store_connect_api_key(
+    key_id:       ASC_KEY_ID,
+    issuer_id:    ASC_ISSUER_ID,
+    key_filepath: ASC_KEY_PATH,
+    in_house:     false
+  )
+end
+
+platform :ios do
+  desc "Show latest TestFlight build number"
+  lane :status do
+    latest = latest_testflight_build_number(api_key: asc_key)
+    UI.success("Latest TestFlight build number: #{latest}")
+  end
+
+  desc "Web build + Capacitor sync + Xcode archive + export signed IPA"
+  lane :build do
+    Dir.chdir("../../..") do
+      sh("npm", "run", "build")
+      sh("npx", "cap", "sync", "ios")
+    end
+    archive_only
+  end
+
+  desc "Xcode archive + export signed IPA only (assumes web build + cap sync already done)"
+  lane :archive_only do
+    sh("rm", "-rf", "build")
+    build_app(
+      workspace:        "App.xcworkspace",
+      scheme:           "App",
+      configuration:    "Release",
+      export_method:    "app-store",
+      output_directory: "build",
+      clean:            true
+    )
+  end
+
+  desc "Upload the latest IPA to App Store Connect / TestFlight"
+  lane :upload do
+    upload_to_testflight(
+      api_key:                           asc_key,
+      ipa:                               "build/App.ipa",
+      skip_submission:                   true,
+      skip_waiting_for_build_processing: false
+    )
+  end
+
+  desc "Archive + upload to TestFlight only (no App Store submit). Use for pre-release testing."
+  lane :testflight_only do
+    archive_only
+    upload
+  end
+
+  desc "Submit current processed build for App Store review."
+  lane :submit do |options|
+    # Read literal version from xcodeproj MARKETING_VERSION
+    # (Info.plist uses $(MARKETING_VERSION) — doesn't resolve outside Xcode build).
+    version = options[:version] || sh("grep", "-m1", "MARKETING_VERSION", "../App.xcodeproj/project.pbxproj").strip.match(/MARKETING_VERSION = ([^;]+);/)[1]
+    deliver(
+      api_key:            asc_key,
+      app_version:        version,
+      submit_for_review:  true,
+      automatic_release:  true,
+      force:              true,
+      reject_if_possible: true,
+      skip_screenshots:   true,
+      skip_metadata:      false,
+      skip_binary_upload: true,
+      skip_app_version_update: false,
+      precheck_include_in_app_purchases: false,
+      submission_information: {
+        add_id_info_uses_idfa:                false,
+        export_compliance_uses_encryption:    false,
+        export_compliance_encryption_updated: false
+      }
+    )
+  end
+
+  desc "Full release: build -> upload -> submit"
+  lane :release do
+    build
+    upload
+    submit
+  end
+
+  desc "Release assuming web build + cap sync already done manually"
+  lane :release_prebuilt do
+    archive_only
+    upload
+    submit
+  end
+end

@@ -1,0 +1,1 @@
+Fixes password reset on iOS. Tapping the reset link in your email now properly opens the password change screen.

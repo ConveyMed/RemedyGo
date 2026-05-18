@@ -1,0 +1,6 @@
+# Per-app iOS identifiers. Fill in before first release.
+# Find both in ios/App/App.xcodeproj/project.pbxproj:
+#   - PRODUCT_BUNDLE_IDENTIFIER  (e.g. "com.appcatalyst.baseshopcatalyst")
+#   - DEVELOPMENT_TEAM           (e.g. "4784NAM5SW")
+app_identifier("com.conveyProInc.curvaFixSalesEngagement")
+team_id("9B895DPQKP")

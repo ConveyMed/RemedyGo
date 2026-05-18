@@ -1,0 +1,6 @@
+# Points at shared Play Console service account (works for ALL apps once the
+# service account has been granted Admin permissions in Play Console for that app).
+json_key_file(File.expand_path("~/Apps/p8-keys/play-store-service-account.json"))
+
+# Must match applicationId in android/app/build.gradle (e.g. "com.appcatalyst.baseshopcatalyst")
+package_name("com.conveyProInc.curvaFixSalesEngagement2")
