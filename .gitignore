@@ -42,3 +42,6 @@ ios/App/App/public/
 android/keystore.properties
 android/*.jks
 android/*.pem
+
+# Per-app deviation map (local-only, not committed)
+WHATS_DIFFERENT.md
