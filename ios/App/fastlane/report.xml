@@ -5,72 +5,57 @@
     
     
       
-      <testcase classname="fastlane.lanes" name="00: default_platform" time="0.000239">
+      <testcase classname="fastlane.lanes" name="00: default_platform" time="0.000396">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="01: Switch to ios build lane" time="0.000104">
+      <testcase classname="fastlane.lanes" name="01: Switch to ios archive_only lane" time="0.000106">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="02: npm run build" time="28.54754">
+      <testcase classname="fastlane.lanes" name="02: rm -rf build" time="0.005944">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="03: npx cap sync ios" time="6.279097">
+      <testcase classname="fastlane.lanes" name="03: build_app" time="73.373472">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="04: Switch to ios archive_only lane" time="0.000256">
+      <testcase classname="fastlane.lanes" name="04: Switch to ios upload lane" time="0.000119">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="05: rm -rf build" time="0.005243">
+      <testcase classname="fastlane.lanes" name="05: app_store_connect_api_key" time="0.003225">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="06: build_app" time="211.490933">
+      <testcase classname="fastlane.lanes" name="06: upload_to_testflight" time="314.139955">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="07: Switch to ios upload lane" time="0.000159">
+      <testcase classname="fastlane.lanes" name="07: Switch to ios submit lane" time="0.000335">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="08: app_store_connect_api_key" time="0.011902">
+      <testcase classname="fastlane.lanes" name="08: grep -m1 MARKETING_VERSION ../App.xcodeproj/project.pbxproj" time="0.014688">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="09: upload_to_testflight" time="279.405835">
+      <testcase classname="fastlane.lanes" name="09: app_store_connect_api_key" time="0.003568">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="10: Switch to ios submit lane" time="0.000379">
-        
-      </testcase>
-    
-      
-      <testcase classname="fastlane.lanes" name="11: grep -m1 MARKETING_VERSION ../App.xcodeproj/project.pbxproj" time="0.016602">
-        
-      </testcase>
-    
-      
-      <testcase classname="fastlane.lanes" name="12: app_store_connect_api_key" time="0.003223">
-        
-      </testcase>
-    
-      
-      <testcase classname="fastlane.lanes" name="13: deliver" time="27.842804">
+      <testcase classname="fastlane.lanes" name="10: deliver" time="26.573839">
         
       </testcase>
     
