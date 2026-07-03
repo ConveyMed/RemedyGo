@@ -45,6 +45,7 @@ export const ActivityNotificationsProvider = ({ children }) => {
       setNotificationReads(new Set());
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   // Load all activity data

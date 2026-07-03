@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useContent } from '../context/ContentContext';
 import { useDownloads } from '../context/DownloadsContext';
 import { useAuth } from '../context/AuthContext';
@@ -348,7 +348,6 @@ const ContentLibraryScreen = ({ type, title }) => {
     libraryCategories,
     trainingCategories,
     loading: contentLoading,
-    refreshContent,
   } = useContent();
 
   const {

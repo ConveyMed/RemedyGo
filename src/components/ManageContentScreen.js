@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useContent } from '../context/ContentContext';
-import { useAuth } from '../context/AuthContext';
 import { supabase } from '../config/supabase';
 import {
   DndContext,

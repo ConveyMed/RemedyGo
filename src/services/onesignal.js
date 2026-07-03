@@ -1,8 +1,9 @@
 import { supabase } from '../config/supabase';
 import { Capacitor } from '@capacitor/core';
 
-// Practice/default key - works for testing. Replace with client's OneSignal App ID in .env
-const ONESIGNAL_APP_ID = process.env.REACT_APP_ONESIGNAL_APP_ID || '7144dde5-f28b-42e4-a826-9f5adef0a772';
+// RemedyGo's own OneSignal App ID. .env value wins at build time; this fallback must
+// match RemedyGo (the old fallback pointed at the demo app, which would misroute pushes).
+const ONESIGNAL_APP_ID = process.env.REACT_APP_ONESIGNAL_APP_ID || '47e8a075-b21b-463f-8f0e-b36f3cb3cb18';
 
 let isSDKInitialized = false;
 let currentUserId = null;

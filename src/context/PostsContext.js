@@ -30,7 +30,7 @@ const getTimeAgo = (date) => {
 };
 
 export const PostsProvider = ({ children }) => {
-  const { userProfile, user, currentViewOrgId, isAdmin, canSwitchOrgs } = useAuth();
+  const { userProfile, user, currentViewOrgId } = useAuth();
   const [posts, setPosts] = useState([]);
   const [scheduledPosts, setScheduledPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +83,7 @@ export const PostsProvider = ({ children }) => {
     if (!initialLoaded) {
       loadPosts();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialLoaded]);
 
   // Reload posts when organization view changes
@@ -90,6 +91,7 @@ export const PostsProvider = ({ children }) => {
     if (initialLoaded && currentViewOrgId) {
       loadPosts(true); // Force refresh when org changes
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentViewOrgId]);
 
   // Computed loading - only true if actually loading AND no data yet
