@@ -133,7 +133,7 @@ export function downloadSectionCSV(section, baseFilename = 'conveymed') {
 
 // Generate comprehensive CSV with all sections
 export function generateFullCSV(sections, options = {}) {
-  const { dateRange, companyName = 'ConveyMed', allUsers, userReportRows, categories = [], screenNames = [] } = options
+  const { dateRange, userReportRows, categories = [], screenNames = [] } = options
   const USER_REPORT_COLUMNS = buildUserReportColumns(screenNames, categories)
   const USER_REPORT_GROUPS = buildUserReportGroups(screenNames, categories)
   let csv = ''
@@ -214,7 +214,7 @@ export function downloadFullCSV(sections, filename, options = {}) {
 
 // Download multiple CSVs as a ZIP (requires JSZip)
 export async function downloadCSVZip(sections, filename, options = {}) {
-  const { allUsers, userReportRows, categories = [], screenNames = [] } = options
+  const { userReportRows, categories = [], screenNames = [] } = options
   const USER_REPORT_COLUMNS = buildUserReportColumns(screenNames, categories)
   const USER_REPORT_GROUPS = buildUserReportGroups(screenNames, categories)
 
@@ -372,7 +372,7 @@ function addSectionSheet(workbook, section) {
 
 export async function downloadExcel(sections, filename, options = {}) {
   const ExcelJS = (await import('exceljs')).default
-  const { companyName = 'ConveyMed', dateRange, allUsers, userReportRows, categories = [], screenNames = [] } = options
+  const { companyName = 'ConveyMed', dateRange, userReportRows, categories = [], screenNames = [] } = options
   const USER_REPORT_COLUMNS = buildUserReportColumns(screenNames, categories)
   const USER_REPORT_GROUPS = buildUserReportGroups(screenNames, categories)
 

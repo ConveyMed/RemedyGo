@@ -36,7 +36,7 @@ const FileIcon = () => (
 const ManageAI = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
-  const { organizations, currentViewOrg, currentViewOrgId, isAdmin, canSwitchOrgs } = useAuth();
+  const { organizations, currentViewOrg, currentViewOrgId, isAdmin } = useAuth();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -53,6 +53,7 @@ const ManageAI = () => {
   // Fetch products
   useEffect(() => {
     fetchProducts();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentViewOrgId]);
 
   const fetchProducts = async () => {

@@ -13,7 +13,7 @@ export const useContent = () => {
 };
 
 export const ContentProvider = ({ children }) => {
-  const { user, currentViewOrgId, isAdmin, canSwitchOrgs } = useAuth();
+  const { user, currentViewOrgId } = useAuth();
 
   // Categories and items state
   const [libraryCategories, setLibraryCategories] = useState([]);
@@ -36,6 +36,7 @@ export const ContentProvider = ({ children }) => {
       console.log('[ContentContext] Initial load with org:', currentViewOrgId);
       loadAllContent();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentViewOrgId, initialLoaded]);
 
   // Reload content when organization view changes (after initial load)
@@ -44,6 +45,7 @@ export const ContentProvider = ({ children }) => {
       console.log('[ContentContext] Org changed, reloading:', currentViewOrgId);
       loadAllContent(true); // Force refresh when org changes
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentViewOrgId]);
 
   // Computed loading - only true if actually loading AND no data yet
