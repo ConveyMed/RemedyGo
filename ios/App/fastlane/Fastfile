@@ -53,7 +53,15 @@ platform :ios do
       configuration:    "Release",
       export_method:    "app-store",
       output_directory: "build",
-      clean:            true
+      clean:            true,
+      export_options: {
+        signingStyle: "manual",
+        teamID: "9B895DPQKP",
+        provisioningProfiles: {
+          "com.conveyProInc.curvaFixSalesEngagement" => "com.conveyProInc.curvaFixSalesEngagement AppStore 1785196219",
+          "com.conveyProInc.curvaFixSalesEngagement.OneSignalNotificationServiceExtension" => "com.conveyProInc.curvaFixSalesEngagement.OneSignalNotificationServiceExtension AppStore"
+        }
+      }
     )
   end
 

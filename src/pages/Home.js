@@ -1275,7 +1275,7 @@ const editModalStyles = {
     left: '50%',
     transform: 'translateX(-50%) translateY(100%)',
     width: '100%',
-    maxWidth: '600px',
+    maxWidth: 'var(--content-max)',
     backgroundColor: '#ffffff',
     borderRadius: '24px',
     maxHeight: 'calc(100vh - 100px - env(safe-area-inset-bottom, 0px))',
@@ -2187,7 +2187,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: '12px 16px 8px 16px',
-    maxWidth: '600px',
+    maxWidth: 'var(--content-max)',
     margin: '0 auto',
     position: 'relative',
   },
@@ -2229,7 +2229,7 @@ const styles = {
   },
   pullIndicator: {
     width: '100%',
-    maxWidth: '600px',
+    maxWidth: 'var(--content-max)',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
@@ -2256,7 +2256,7 @@ const styles = {
     textAlign: 'center',
   },
   headerBorder: {
-    maxWidth: '600px',
+    maxWidth: 'var(--content-max)',
     margin: '0 auto 16px auto',
     height: '2px',
     backgroundColor: 'rgba(var(--primary-blue-rgb), 0.15)',
@@ -2380,7 +2380,7 @@ const styles = {
   // Feed styles
   feed: {
     width: '100%',
-    maxWidth: '600px',
+    maxWidth: 'var(--content-max)',
     padding: '12px',
     display: 'flex',
     flexDirection: 'column',

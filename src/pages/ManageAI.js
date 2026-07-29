@@ -489,7 +489,7 @@ const styles = {
   },
   content: {
     padding: '16px',
-    maxWidth: '600px',
+    maxWidth: 'var(--content-max)',
     margin: '0 auto',
   },
   infoCard: {
