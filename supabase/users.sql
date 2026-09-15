@@ -60,8 +60,10 @@ DROP POLICY IF EXISTS "Users can update own profile" ON users;
 DROP POLICY IF EXISTS "Allow insert for auth trigger" ON users;
 
 -- Policies
+-- TO authenticated is required. Without it this policy grants the anon role and
+-- the whole user directory becomes readable with no login.
 CREATE POLICY "Users can view all users" ON users
-  FOR SELECT USING (true);
+  FOR SELECT TO authenticated USING (true);
 
 CREATE POLICY "Users can update own profile" ON users
   FOR UPDATE USING (auth.uid() = id);
