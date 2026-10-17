@@ -11,6 +11,7 @@ import { getOrgColor } from '../theme';
 import 'swiper/css';
 import 'swiper/css/pagination';
 import 'swiper/css/navigation';
+import { SignedImg, SignedVideo } from '../components/SignedMedia';
 
 // Icons
 const HeartIcon = ({ filled }) => (
@@ -180,7 +181,7 @@ const Post = ({ post, currentUserId, isAdmin, onEditPost, organizations }) => {
       {/* Post Header */}
       <div style={styles.postHeader}>
         {post.author.avatar ? (
-          <img
+          <SignedImg
             src={post.author.avatar}
             alt={post.author.name}
             style={styles.avatar}
@@ -328,9 +329,9 @@ const Post = ({ post, currentUserId, isAdmin, onEditPost, organizations }) => {
           return (
             <div style={styles.imageContainer}>
               {media.type === 'video' ? (
-                <video src={media.url} style={styles.postImage} controls playsInline />
+                <SignedVideo src={media.url} style={styles.postImage} controls playsInline />
               ) : (
-                <img src={media.url} alt="Post" style={styles.postImage} />
+                <SignedImg src={media.url} alt="Post" style={styles.postImage} />
               )}
             </div>
           );
@@ -350,9 +351,9 @@ const Post = ({ post, currentUserId, isAdmin, onEditPost, organizations }) => {
                 <SwiperSlide key={i}>
                   <div style={styles.carouselSlide}>
                     {media.type === 'video' ? (
-                      <video src={media.url} style={styles.carouselMedia} controls playsInline />
+                      <SignedVideo src={media.url} style={styles.carouselMedia} controls playsInline />
                     ) : (
-                      <img src={media.url} alt={`Post ${i + 1}`} style={styles.carouselMedia} />
+                      <SignedImg src={media.url} alt={`Post ${i + 1}`} style={styles.carouselMedia} />
                     )}
                   </div>
                 </SwiperSlide>
@@ -680,7 +681,7 @@ const EditPostModal = ({ post, onClose, onSave }) => {
                       <XIcon />
                     </button>
                   )}
-                  <img src={url} alt={`Upload ${index + 1}`} style={editModalStyles.mediaPreview} />
+                  <SignedImg src={url} alt={`Upload ${index + 1}`} style={editModalStyles.mediaPreview} />
                 </div>
               ))}
               {existingVideos.map((url, index) => (
@@ -693,7 +694,7 @@ const EditPostModal = ({ post, onClose, onSave }) => {
                       <XIcon />
                     </button>
                   )}
-                  <video src={url} style={editModalStyles.mediaPreview} />
+                  <SignedVideo src={url} style={editModalStyles.mediaPreview} />
                 </div>
               ))}
               {newMediaFiles.map((media, index) => (
@@ -707,9 +708,9 @@ const EditPostModal = ({ post, onClose, onSave }) => {
                     </button>
                   )}
                   {media.type === 'video' ? (
-                    <video src={media.preview} style={editModalStyles.mediaPreview} />
+                    <SignedVideo src={media.preview} style={editModalStyles.mediaPreview} />
                   ) : (
-                    <img src={media.preview} alt={`New ${index + 1}`} style={editModalStyles.mediaPreview} />
+                    <SignedImg src={media.preview} alt={`New ${index + 1}`} style={editModalStyles.mediaPreview} />
                   )}
                   <div style={editModalStyles.newBadge}>NEW</div>
                 </div>
@@ -1088,7 +1089,7 @@ const EditScheduledPostModal = ({ post, onClose, onSave, onDelete }) => {
                       <XIcon />
                     </button>
                   )}
-                  <img src={url} alt={`Upload ${index + 1}`} style={editModalStyles.mediaPreview} />
+                  <SignedImg src={url} alt={`Upload ${index + 1}`} style={editModalStyles.mediaPreview} />
                 </div>
               ))}
               {existingVideos.map((url, index) => (
@@ -1098,7 +1099,7 @@ const EditScheduledPostModal = ({ post, onClose, onSave, onDelete }) => {
                       <XIcon />
                     </button>
                   )}
-                  <video src={url} style={editModalStyles.mediaPreview} />
+                  <SignedVideo src={url} style={editModalStyles.mediaPreview} />
                 </div>
               ))}
               {newMediaFiles.map((media, index) => (
@@ -1109,9 +1110,9 @@ const EditScheduledPostModal = ({ post, onClose, onSave, onDelete }) => {
                     </button>
                   )}
                   {media.type === 'video' ? (
-                    <video src={media.preview} style={editModalStyles.mediaPreview} />
+                    <SignedVideo src={media.preview} style={editModalStyles.mediaPreview} />
                   ) : (
-                    <img src={media.preview} alt={`New ${index + 1}`} style={editModalStyles.mediaPreview} />
+                    <SignedImg src={media.preview} alt={`New ${index + 1}`} style={editModalStyles.mediaPreview} />
                   )}
                   <div style={editModalStyles.newBadge}>NEW</div>
                 </div>
@@ -2049,7 +2050,7 @@ const Home = () => {
                       {/* Post Header */}
                       <div style={styles.postHeader}>
                         {post.author.avatar ? (
-                          <img src={post.author.avatar} alt={post.author.name} style={styles.avatar} />
+                          <SignedImg src={post.author.avatar} alt={post.author.name} style={styles.avatar} />
                         ) : (
                           <div style={styles.avatarPlaceholder}>
                             <UserIcon />
@@ -2074,9 +2075,9 @@ const Home = () => {
                       {allMedia.length === 1 && (
                         <div style={styles.imageContainer}>
                           {allMedia[0].type === 'video' ? (
-                            <video src={allMedia[0].url} style={styles.postImage} controls playsInline />
+                            <SignedVideo src={allMedia[0].url} style={styles.postImage} controls playsInline />
                           ) : (
-                            <img src={allMedia[0].url} alt="Post" style={styles.postImage} />
+                            <SignedImg src={allMedia[0].url} alt="Post" style={styles.postImage} />
                           )}
                         </div>
                       )}
@@ -2094,9 +2095,9 @@ const Home = () => {
                               <SwiperSlide key={i}>
                                 <div style={styles.carouselSlide}>
                                   {media.type === 'video' ? (
-                                    <video src={media.url} style={styles.carouselMedia} controls playsInline />
+                                    <SignedVideo src={media.url} style={styles.carouselMedia} controls playsInline />
                                   ) : (
-                                    <img src={media.url} alt={`Post ${i + 1}`} style={styles.carouselMedia} />
+                                    <SignedImg src={media.url} alt={`Post ${i + 1}`} style={styles.carouselMedia} />
                                   )}
                                 </div>
                               </SwiperSlide>

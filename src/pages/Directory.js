@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import useIsTablet from '../hooks/useIsTablet';
 import { supabase } from '../config/supabase';
 import { useAnalytics } from '../context/AnalyticsContext';
+import { SignedImg } from '../components/SignedMedia';
 
 const SearchIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -169,7 +170,7 @@ const Directory = () => {
                 >
                   <div style={styles.userAvatar}>
                     {user.profile_image_url ? (
-                      <img src={user.profile_image_url} alt="" style={styles.avatarImage} />
+                      <SignedImg src={user.profile_image_url} alt="" style={styles.avatarImage} />
                     ) : (
                       <div style={styles.avatarPlaceholder}>
                         <UserIcon />
@@ -205,7 +206,7 @@ const Directory = () => {
             <div style={styles.profileSection}>
               <div style={styles.profileAvatar}>
                 {selectedUser.profile_image_url ? (
-                  <img src={selectedUser.profile_image_url} alt="" style={styles.profileImage} />
+                  <SignedImg src={selectedUser.profile_image_url} alt="" style={styles.profileImage} />
                 ) : (
                   <div style={styles.profilePlaceholder}>
                     <span style={styles.profileInitials}>

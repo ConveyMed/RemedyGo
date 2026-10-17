@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import useIsTablet from '../hooks/useIsTablet';
 import { useNavigate } from 'react-router-dom';
 import { useDownloads } from '../context/DownloadsContext';
+import { SignedImg } from '../components/SignedMedia';
 
 // Icons
 const SearchIcon = () => (
@@ -101,7 +102,7 @@ const DownloadItem = ({ item, onView, onDelete }) => {
     <div style={styles.downloadCard}>
       <div style={styles.fileIconContainer}>
         {thumbnailSrc ? (
-          <img src={thumbnailSrc} alt="" style={styles.thumbnail} />
+          <SignedImg src={thumbnailSrc} alt="" style={styles.thumbnail} />
         ) : (
           getFileIcon(item.file_type)
         )}

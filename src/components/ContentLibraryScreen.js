@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { openInAppBrowser } from '../utils/browser';
 import { getOrgColor } from '../theme';
 import { useAnalytics } from '../context/AnalyticsContext';
+import { SignedImg } from './SignedMedia';
 
 // Icons
 const SearchIcon = () => (
@@ -113,7 +114,7 @@ const ContentCard = ({ item, onClick, isDownloaded, downloadProgress }) => {
     <div style={styles.card} onClick={onClick}>
       <div style={styles.thumbnailContainer}>
         {item.thumbnail_url ? (
-          <img
+          <SignedImg
             src={item.thumbnail_url}
             alt={item.title}
             style={styles.thumbnail}
@@ -220,7 +221,7 @@ const ContentModal = ({ item, onClose, isDownloaded, onDownload, downloadProgres
         {/* Large thumbnail */}
         <div style={styles.modalThumbnailContainer}>
           {item.thumbnail_url ? (
-            <img
+            <SignedImg
               src={item.thumbnail_url}
               alt={item.title}
               style={styles.modalThumbnail}

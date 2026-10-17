@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../config/supabase';
 import { notifyNewUserJoined } from '../services/notifications';
 import './onboarding.css';
+import { SignedImg } from '../components/SignedMedia';
 
 function ProfileComplete({ onComplete }) {
   const [user, setUser] = useState(null);
@@ -431,7 +432,7 @@ function ProfileComplete({ onComplete }) {
 
           <div className="profile-photo-container">
             {imagePreview ? (
-              <img src={imagePreview} alt="Preview" className="profile-photo-preview" />
+              <SignedImg src={imagePreview} alt="Preview" className="profile-photo-preview" />
             ) : (
               <div className="profile-photo-placeholder">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -498,7 +499,7 @@ function ProfileComplete({ onComplete }) {
 
           <div className="profile-review-card">
             {imagePreview && (
-              <img src={imagePreview} alt="Profile" className="profile-review-photo" />
+              <SignedImg src={imagePreview} alt="Profile" className="profile-review-photo" />
             )}
             <div className="profile-review-table">
               <div className="profile-review-row">

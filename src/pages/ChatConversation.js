@@ -4,6 +4,7 @@ import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../config/supabase';
 import { openInAppBrowser } from '../utils/browser';
+import { SignedImg } from '../components/SignedMedia';
 
 // Icons
 const BackIcon = () => (
@@ -285,7 +286,7 @@ const ChatConversation = () => {
             <div style={styles.avatarSpace}>
               {showAvatar && (
                 message.sender?.profile_image_url ? (
-                  <img
+                  <SignedImg
                     src={message.sender.profile_image_url}
                     alt=""
                     style={styles.messageAvatar}
@@ -327,7 +328,7 @@ const ChatConversation = () => {
 
               {/* Image */}
               {message.message_type === 'image' && message.file_url && (
-                <img
+                <SignedImg
                   src={message.file_url}
                   alt=""
                   style={styles.messageImage}
@@ -501,7 +502,7 @@ const ChatConversation = () => {
           onClick={() => setShowInfo(true)}
         >
           {chat.display_avatar ? (
-            <img src={chat.display_avatar} alt="" style={styles.headerAvatar} />
+            <SignedImg src={chat.display_avatar} alt="" style={styles.headerAvatar} />
           ) : (
             <div style={styles.headerAvatarPlaceholder}>
               {chat.is_group ? <UsersIcon /> : <UserIcon />}
@@ -704,7 +705,7 @@ const ChatInfoDrawer = ({ chat, onClose, onAddMembers, onRemoveMember, onUpdateN
           {/* Avatar & Name */}
           <div style={styles.drawerProfile}>
             {chat.display_avatar ? (
-              <img src={chat.display_avatar} alt="" style={styles.drawerAvatar} />
+              <SignedImg src={chat.display_avatar} alt="" style={styles.drawerAvatar} />
             ) : (
               <div style={styles.drawerAvatarPlaceholder}>
                 {chat.is_group ? <UsersIcon /> : <UserIcon />}
@@ -757,7 +758,7 @@ const ChatInfoDrawer = ({ chat, onClose, onAddMembers, onRemoveMember, onUpdateN
                 {chat.members?.map(member => (
                   <div key={member.user_id} style={styles.memberItem}>
                     {member.users?.profile_image_url ? (
-                      <img
+                      <SignedImg
                         src={member.users.profile_image_url}
                         alt=""
                         style={styles.memberAvatar}
@@ -936,7 +937,7 @@ const AddMembersModal = ({ chat, onClose, onAdd }) => {
                 )}
               >
                 {u.profile_image_url ? (
-                  <img src={u.profile_image_url} alt="" style={styles.userAvatarModal} />
+                  <SignedImg src={u.profile_image_url} alt="" style={styles.userAvatarModal} />
                 ) : (
                   <div style={styles.userAvatarPlaceholderModal}>
                     <UserIcon />

@@ -1,5 +1,5 @@
 PODS:
-  - Capacitor (6.2.1):
+  - Capacitor (6.2.2):
     - CapacitorCordova
   - CapacitorApp (6.0.3):
     - Capacitor
@@ -7,14 +7,14 @@ PODS:
     - Capacitor
   - CapacitorCamera (6.1.3):
     - Capacitor
-  - CapacitorCordova (6.2.1)
+  - CapacitorCordova (6.2.2)
   - CapacitorNetwork (6.0.4):
     - Capacitor
   - CapacitorSplashScreen (6.0.4):
     - Capacitor
   - CapacitorStatusBar (6.0.3):
     - Capacitor
-  - CordovaPluginsStatic (6.2.1):
+  - CordovaPluginsStatic (6.2.2):
     - CapacitorCordova
     - OneSignalCordovaDependencies
   - OneSignalCordovaDependencies (5.5.0):
@@ -114,18 +114,18 @@ CHECKOUT OPTIONS:
     :tag: 5.5.0
 
 SPEC CHECKSUMS:
-  Capacitor: c95400d761e376be9da6be5a05f226c0e865cebf
+  Capacitor: 6591a78b923b7e6dde28506ffeea820356e68013
   CapacitorApp: a19ccb4f5f32d2534be5c6f524d5a9b614a1e8a7
   CapacitorBrowser: 825163a1d6adce944ac7b9e3cab101146b5a9df8
   CapacitorCamera: 5ba135b0cb55a788758139fa2404d726bf60f0f3
-  CapacitorCordova: 8d93e14982f440181be7304aa9559ca631d77fff
+  CapacitorCordova: c2c76283b5c00cf6073bab0b1311e3b10bd17254
   CapacitorNetwork: 093efa3664b692a971bdd01be70523291cd6a87f
   CapacitorSplashScreen: ef140a8b1ea7244e0c245ce2dd4ce5251e7ab86a
   CapacitorStatusBar: 149cde8f1328ec3aa6cbdd872a55137ae3f98b16
-  CordovaPluginsStatic: 4489208a2b334e237c65fb08abab4924f333b8de
+  CordovaPluginsStatic: 08144d7b4a9bc98b1b1e2e1d8fe1401a0a2ed720
   OneSignalCordovaDependencies: 8ff37f42703353ef661de0db42a9b8e47ed7810d
   OneSignalXCFramework: f4505256255ae5fccfd33ba2eb1871ba2d4ce2bb
 
-PODFILE CHECKSUM: 6aee5dfb86b076d8595b8ee0b72b98549ad13554
+PODFILE CHECKSUM: c13865bd476539309b6ef87e6a6b254b949afa3c
 
 COCOAPODS: 1.17.0

@@ -1,5 +1,6 @@
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
+import { parseStorageUrl, getResolvedStorageUrl, resolveStorageUrl } from './storageUrls';
 
 /**
  * Opens a URL in the in-app browser (iOS/Android) or new tab (web)
@@ -12,6 +13,27 @@ export const openInAppBrowser = async (url) => {
   let fullUrl = url;
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
     fullUrl = 'https://' + url;
+  }
+
+  // Storage files open through a signed URL so they work from a private bucket
+  if (parseStorageUrl(fullUrl)) {
+    const ready = getResolvedStorageUrl(fullUrl);
+    if (ready) {
+      fullUrl = ready;
+    } else if (!Capacitor.isNativePlatform()) {
+      // Web: open the tab now, while the tap still counts, then point it at the file
+      const tab = window.open('', '_blank');
+      const signed = await resolveStorageUrl(fullUrl);
+      if (tab) {
+        tab.opener = null;
+        tab.location.href = signed;
+      } else {
+        window.open(signed, '_blank', 'noopener,noreferrer');
+      }
+      return;
+    } else {
+      fullUrl = await resolveStorageUrl(fullUrl);
+    }
   }
 
   try {

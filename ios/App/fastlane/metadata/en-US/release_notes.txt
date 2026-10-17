@@ -1,1 +1,3 @@
-Fixes password reset on iOS. Tapping the reset link in your email now properly opens the password change screen.
+Security update: files and photos now load through secure, expiring links.
+Responsive layout improvements for iPad and larger displays, including full-size Sales Tools previews.
+Performance and stability fixes.

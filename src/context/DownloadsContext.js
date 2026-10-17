@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { get, set, del, keys, entries } from 'idb-keyval';
 import { useAuth } from './AuthContext';
+import { resolveStorageUrl } from '../utils/storageUrls';
 
 const DownloadsContext = createContext({});
 
@@ -79,7 +80,7 @@ export const DownloadsProvider = ({ children }) => {
 
     try {
       // Fetch the file
-      const response = await fetch(contentItem.file_url);
+      const response = await fetch(await resolveStorageUrl(contentItem.file_url));
 
       if (!response.ok) {
         throw new Error('Failed to fetch file');
@@ -120,7 +121,7 @@ export const DownloadsProvider = ({ children }) => {
       let thumbnailData = null;
       if (contentItem.thumbnail_url) {
         try {
-          const thumbResponse = await fetch(contentItem.thumbnail_url);
+          const thumbResponse = await fetch(await resolveStorageUrl(contentItem.thumbnail_url));
           if (thumbResponse.ok) {
             const thumbBlob = await thumbResponse.blob();
             thumbnailData = await blobToBase64(thumbBlob);

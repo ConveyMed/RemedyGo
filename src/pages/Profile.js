@@ -4,6 +4,7 @@ import { useAppSettings } from '../context/AppSettingsContext';
 import { useNavigate } from 'react-router-dom';
 import { App } from '@capacitor/app';
 import { getOrgColor } from '../theme';
+import { SignedImg } from '../components/SignedMedia';
 
 const LogoutIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -245,7 +246,7 @@ const Profile = () => {
           <div style={styles.profileCard}>
             <div style={styles.avatarContainer}>
               {userProfile?.profile_image_url ? (
-                <img
+                <SignedImg
                   src={userProfile.profile_image_url}
                   alt="Profile"
                   style={styles.avatar}

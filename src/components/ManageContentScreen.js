@@ -19,6 +19,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { SignedImg } from './SignedMedia';
 
 // Icons
 const BackIcon = () => (
@@ -180,7 +181,7 @@ const SortableContentItem = ({ item, onEdit, onDelete }) => {
       </div>
       <div style={styles.itemThumbnail}>
         {item.thumbnail_url ? (
-          <img src={item.thumbnail_url} alt="" style={styles.itemThumbImage} />
+          <SignedImg src={item.thumbnail_url} alt="" style={styles.itemThumbImage} />
         ) : (
           <div style={styles.itemThumbPlaceholder}>
             <ImageIcon />
@@ -520,7 +521,7 @@ const ContentItemModal = ({ isOpen, onClose, onSave, onCategoryChange, item, tit
           <label style={styles.label}>Thumbnail (Square Image)</label>
           {formData.thumbnail_url ? (
             <div style={styles.thumbnailPreview}>
-              <img src={formData.thumbnail_url} alt="Thumbnail" style={styles.previewImage} />
+              <SignedImg src={formData.thumbnail_url} alt="Thumbnail" style={styles.previewImage} />
               <button style={styles.removeBtn} onClick={() => handleChange('thumbnail_url', '')}>Remove</button>
             </div>
           ) : (
@@ -879,7 +880,7 @@ const MultiCategoryContentModal = ({ isOpen, onClose, onSave, onSaveCategory, ca
           <label style={styles.label}>Thumbnail (Square Image)</label>
           {formData.thumbnail_url ? (
             <div style={styles.thumbnailPreview}>
-              <img src={formData.thumbnail_url} alt="Thumbnail" style={styles.previewImage} />
+              <SignedImg src={formData.thumbnail_url} alt="Thumbnail" style={styles.previewImage} />
               <button style={styles.removeBtn} onClick={() => handleChange('thumbnail_url', '')}>Remove</button>
             </div>
           ) : (

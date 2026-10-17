@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../context/NotificationsContext';
+import { SignedImg } from '../components/SignedMedia';
 
 // Icons
 const BackIcon = () => (
@@ -334,7 +335,7 @@ const RsvpModal = ({ isOpen, onClose, notification, responses }) => {
               <div key={response.id} style={styles.responseItem}>
                 <div style={styles.responseUser}>
                   {response.users?.profile_image_url ? (
-                    <img
+                    <SignedImg
                       src={response.users.profile_image_url}
                       alt=""
                       style={styles.responseAvatar}

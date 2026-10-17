@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
 import { getOrgColor } from '../theme';
+import { SignedImg } from '../components/SignedMedia';
 
 // Icons
 const SearchIcon = () => (
@@ -182,7 +183,7 @@ const Chat = () => {
         {/* Avatar */}
         <div style={styles.avatarContainer}>
           {chat.display_avatar ? (
-            <img
+            <SignedImg
               src={chat.display_avatar}
               alt={chat.display_name}
               style={styles.avatar}
@@ -577,7 +578,7 @@ const NewChatModal = ({ onClose }) => {
                 onClick={() => toggleUser(u.id)}
               >
                 {u.profile_image_url ? (
-                  <img src={u.profile_image_url} alt="" style={styles.userAvatar} />
+                  <SignedImg src={u.profile_image_url} alt="" style={styles.userAvatar} />
                 ) : (
                   <div style={styles.userAvatarPlaceholder}>
                     <UserIcon />

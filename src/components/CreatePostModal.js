@@ -3,6 +3,7 @@ import { usePosts } from '../context/PostsContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../config/supabase';
 import OrganizationSelector from './OrganizationSelector';
+import { SignedImg, SignedVideo } from './SignedMedia';
 
 const CloseIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -367,7 +368,7 @@ const CreatePostModal = () => {
         {/* Author info */}
         <div style={styles.authorSection}>
           {userProfile?.profile_image_url ? (
-            <img
+            <SignedImg
               src={userProfile.profile_image_url}
               alt="Your avatar"
               style={styles.avatar}
@@ -413,12 +414,12 @@ const CreatePostModal = () => {
                     </button>
                   )}
                   {media.type === 'video' ? (
-                    <video
+                    <SignedVideo
                       src={media.preview}
                       style={styles.mediaPreview}
                     />
                   ) : (
-                    <img
+                    <SignedImg
                       src={media.preview}
                       alt={`Selected ${index + 1}`}
                       style={styles.mediaPreview}

@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { useActivityNotifications } from '../context/ActivityNotificationsContext';
+import { SignedImg } from './SignedMedia';
 
 // Bell Icon
 const BellIcon = () => (
@@ -212,7 +213,7 @@ export const NotificationPanel = ({ onNavigate }) => {
                     >
                       <div style={styles.itemAvatar}>
                         {notification.actor?.profile_image_url ? (
-                          <img
+                          <SignedImg
                             src={notification.actor.profile_image_url}
                             alt=""
                             style={styles.avatarImg}
@@ -262,7 +263,7 @@ export const NotificationPanel = ({ onNavigate }) => {
                     >
                       <div style={styles.itemAvatar}>
                         {notification.actor?.profile_image_url ? (
-                          <img
+                          <SignedImg
                             src={notification.actor.profile_image_url}
                             alt=""
                             style={styles.avatarImg}

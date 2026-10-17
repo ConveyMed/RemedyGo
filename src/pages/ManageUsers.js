@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import { useAuth } from '../context/AuthContext';
+import { SignedImg } from '../components/SignedMedia';
 
 const BackIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -325,7 +326,7 @@ const ManageUsers = () => {
                   >
                     <div style={styles.userAvatar}>
                       {user.profile_image_url ? (
-                        <img src={user.profile_image_url} alt="" style={styles.avatarImage} />
+                        <SignedImg src={user.profile_image_url} alt="" style={styles.avatarImage} />
                       ) : (
                         <div style={styles.avatarPlaceholder}>
                           <UserIcon />
@@ -418,7 +419,7 @@ const ManageUsers = () => {
                 <div style={styles.profileSection}>
                   <div style={styles.profileAvatar}>
                     {selectedUser.profile_image_url ? (
-                      <img src={selectedUser.profile_image_url} alt="" style={styles.profileImage} />
+                      <SignedImg src={selectedUser.profile_image_url} alt="" style={styles.profileImage} />
                     ) : (
                       <div style={styles.profilePlaceholder}>
                         <UserIcon />

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../config/supabase';
+import { SignedImg } from '../components/SignedMedia';
 
 const BackIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -237,7 +238,7 @@ const EditProfile = () => {
           <div style={styles.photoSection}>
             <div style={styles.photoWrapper}>
               {imagePreview ? (
-                <img src={imagePreview} alt="Profile" style={styles.profileImage} />
+                <SignedImg src={imagePreview} alt="Profile" style={styles.profileImage} />
               ) : (
                 <div style={styles.profilePlaceholder}>
                   <UserIcon />
