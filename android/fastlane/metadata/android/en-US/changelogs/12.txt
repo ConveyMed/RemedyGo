@@ -1,0 +1,1 @@
+Security update: files and photos now load through secure, expiring links. Updated app framework with a security fix. Performance and stability fixes.
