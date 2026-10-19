@@ -1,5 +1,5 @@
 -- Developer account: hidden, undeletable, silent.
--- Chase tests every Velator app as chase@appcatalyst.org. Client admins deleted
+-- Chase tests every Velotoro app as chase@appcatalyst.org. Client admins deleted
 -- his RemedyGo test accounts on 10.17 and 10.18, and his test activity pinged
 -- them. This marks that account with users.is_developer and:
 --   1. blocks any delete of a developer row (and so any delete of its login,
