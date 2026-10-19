@@ -85,9 +85,24 @@ serve(async (req) => {
       return response.json();
     };
 
+    // The app developer account (users.is_developer) never notifies anyone.
+    if (payload.sender_id) {
+      const { data: sender } = await supabase
+        .from('users')
+        .select('is_developer')
+        .eq('id', payload.sender_id)
+        .maybeSingle();
+      if (sender?.is_developer === true) {
+        return new Response(
+          JSON.stringify({ success: true, sent: 0, message: "Skipped for developer account" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     // Helper to get all user IDs in organization
     const getAllUserIds = async (): Promise<string[]> => {
-      const { data, error } = await supabase.from('users').select('id');
+      const { data, error } = await supabase.from('users').select('id').eq('is_developer', false);
       if (error) {
         console.error("Error fetching users:", error);
         return [];
@@ -97,7 +112,7 @@ serve(async (req) => {
 
     // Helper to get admin user IDs
     const getAdminUserIds = async (): Promise<string[]> => {
-      const { data, error } = await supabase.from('users').select('id').eq('is_admin', true);
+      const { data, error } = await supabase.from('users').select('id').eq('is_admin', true).eq('is_developer', false);
       if (error) {
         console.error("Error fetching admins:", error);
         return [];

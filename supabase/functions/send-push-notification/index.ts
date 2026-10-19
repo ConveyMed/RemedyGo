@@ -79,6 +79,29 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
+    // The app developer account (users.is_developer) tests on the live app and
+    // must never push to the client's users. The app sends the signed-in
+    // user's token; an anon key or expired token just falls through.
+    const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+    if (token) {
+      const { data: authData } = await supabase.auth.getUser(token);
+      const callerId = authData?.user?.id;
+      if (callerId) {
+        const { data: caller } = await supabase
+          .from('users')
+          .select('is_developer')
+          .eq('id', callerId)
+          .maybeSingle();
+        if (caller?.is_developer === true) {
+          console.log("Sender is the app developer account, push skipped");
+          return new Response(
+            JSON.stringify({ success: true, sent: 0, message: "Skipped for developer account" }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
+
     // ---- Resolve the targeting fields for the OneSignal notification ----
     // Preferred path: target by external_id (= app user id). The app calls
     // OneSignal.login(userId), so OneSignal maps each external_id to that
