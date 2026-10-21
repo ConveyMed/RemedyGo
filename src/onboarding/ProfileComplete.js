@@ -219,12 +219,17 @@ function ProfileComplete({ onComplete }) {
         updateData.profile_image_url = imageUrl;
       }
 
-      const { error } = await supabase
+      const { data: saved, error } = await supabase
         .from('users')
         .update(updateData)
-        .eq('id', user.id);
+        .eq('id', user.id)
+        .select('id');
 
       if (error) throw error;
+      // 0 rows means nothing was saved (the account no longer exists)
+      if (!saved || saved.length === 0) {
+        throw new Error('Your profile could not be found. Please sign in again.');
+      }
 
       // Notify admins about new user
       notifyNewUserJoined({

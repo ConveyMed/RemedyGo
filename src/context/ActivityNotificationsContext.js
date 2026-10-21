@@ -196,9 +196,40 @@ export const ActivityNotificationsProvider = ({ children }) => {
     return notificationReads.has(notificationId);
   }, [notificationReads]);
 
-  // Compute values directly (not as callbacks) to ensure they update properly
-  const newNotificationsList = getNewNotifications();
-  const unreadNotificationsList = getUnreadNotifications();
+  // Get all notifications for panel (excluding own activity)
+  // Read items: expire after 24 hours
+  // Unread items: expire after 72 hours
+  const getNotificationsForPanel = useCallback(() => {
+    const now = new Date();
+    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const seventyTwoHoursAgo = new Date(now.getTime() - 72 * 60 * 60 * 1000);
+
+    return notifications.filter(n => {
+      if (n.actor_id === user?.id) return false;
+      // The panel only renders post items
+      if (n.type !== 'new_post') return false;
+
+      const createdAt = new Date(n.created_at);
+      const isRead = notificationReads.has(n.id);
+
+      if (isRead) {
+        // Read items expire after 24 hours
+        return createdAt > twentyFourHoursAgo;
+      } else {
+        // Unread items expire after 72 hours
+        return createdAt > seventyTwoHoursAgo;
+      }
+    });
+  }, [notifications, user?.id, notificationReads]);
+
+  // Bell badge and dot count only unread items the panel can actually show
+  // (same type and 72-hour window), so an empty panel never leaves a dot on.
+  const badgeNotificationsList = getNotificationsForPanel().filter(n => !notificationReads.has(n.id));
+  const lastCheckedForBadge = userState?.last_checked_at || userProfile?.created_at || user?.created_at;
+  const newNotificationsList = lastCheckedForBadge
+    ? badgeNotificationsList.filter(n => new Date(n.created_at) > new Date(lastCheckedForBadge))
+    : [];
+  const unreadNotificationsList = badgeNotificationsList;
 
   // Check if there are NEW items (for bell badge)
   const hasNew = useCallback(() => {
@@ -219,30 +250,6 @@ export const ActivityNotificationsProvider = ({ children }) => {
   const unreadCount = useCallback(() => {
     return unreadNotificationsList.length;
   }, [unreadNotificationsList]);
-
-  // Get all notifications for panel (excluding own activity)
-  // Read items: expire after 24 hours
-  // Unread items: expire after 72 hours
-  const getNotificationsForPanel = useCallback(() => {
-    const now = new Date();
-    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const seventyTwoHoursAgo = new Date(now.getTime() - 72 * 60 * 60 * 1000);
-
-    return notifications.filter(n => {
-      if (n.actor_id === user?.id) return false;
-
-      const createdAt = new Date(n.created_at);
-      const isRead = notificationReads.has(n.id);
-
-      if (isRead) {
-        // Read items expire after 24 hours
-        return createdAt > twentyFourHoursAgo;
-      } else {
-        // Unread items expire after 72 hours
-        return createdAt > seventyTwoHoursAgo;
-      }
-    });
-  }, [notifications, user?.id, notificationReads]);
 
   // Group notifications for display
   const getGroupedNotifications = useCallback(() => {

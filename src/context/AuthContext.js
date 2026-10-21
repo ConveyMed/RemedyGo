@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { supabase } from '../config/supabase';
 import { get, set, del } from 'idb-keyval';
 import { logoutOneSignal } from '../services/onesignal';
+import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 // Note: OneSignal initialization is now handled by dedicated components in App.js
 
 const AuthContext = createContext({});
@@ -28,6 +29,8 @@ export const AuthProvider = ({ children }) => {
   const [organizations, setOrganizations] = useState([]);
   const [viewMode, setViewMode] = useState(null); // Current org being viewed (for admin/full_line)
   const profileFetchRef = useRef(null);
+  const verifyAccountRef = useRef(null);
+  const verifyInFlightRef = useRef(false);
 
   // Fetch organizations on mount
   useEffect(() => {
@@ -154,6 +157,12 @@ export const AuthProvider = ({ children }) => {
 
         if (error) {
           console.log('Profile fetch error:', error);
+          // No row at all: the account may have been deleted. Sign out rather
+          // than carry on with the cached profile.
+          if (error.code === 'PGRST116') {
+            const exists = await verifyAccountRef.current(user.id);
+            if (fetchState.cancelled || exists === false) return;
+          }
           // Try cached profile on error
           const cachedProfile = await get(CACHED_PROFILE_KEY);
           if (cachedProfile && cachedProfile.id === user.id) {
@@ -169,6 +178,10 @@ export const AuthProvider = ({ children }) => {
         await set(CACHED_PROFILE_KEY, profile);
         setUserProfile(profile);
         setLoading(false);
+
+        // The row is here, but the login may already be gone. Checked after the
+        // profile loads so it never slows launch.
+        verifyAccountRef.current(user.id);
       } catch (err) {
         console.log('Profile fetch error:', err);
         // Try cached profile on error
@@ -321,6 +334,46 @@ export const AuthProvider = ({ children }) => {
     setUserProfile(null);
     setViewMode(null);
   };
+
+  // Signs out when the login or the profile row no longer exists (an admin
+  // deleted the account, or it was deleted on another device). Acts only on a
+  // definite answer from the server, never on a network error, never offline.
+  // A brand-new signup always has its row: handle_new_user creates it in the
+  // same transaction as the login. Returns false when it signed out.
+  const verifyAccountExists = async (userId) => {
+    if (!userId || !navigator.onLine || verifyInFlightRef.current) return true;
+    verifyInFlightRef.current = true;
+
+    try {
+      const [{ error: userError }, { data: row, error: rowError }] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase.from('users').select('id').eq('id', userId).maybeSingle(),
+      ]);
+
+      const loginGone = !!userError && (
+        userError.code === 'user_not_found' || userError.status === 401 || userError.status === 403
+      );
+      const rowGone = !rowError && !row;
+
+      if (!loginGone && !rowGone) return true;
+
+      console.log('[AuthContext] Account no longer exists, signing out', { loginGone, rowGone });
+      await signOut();
+      setLoading(false);
+      return false;
+    } catch (err) {
+      console.log('Account check error:', err);
+      return true;
+    } finally {
+      verifyInFlightRef.current = false;
+    }
+  };
+  verifyAccountRef.current = verifyAccountExists;
+
+  // Check again whenever the app comes back to the foreground or reconnects.
+  useRefreshOnFocus(() => {
+    if (authChecked && user?.id) verifyAccountRef.current(user.id);
+  });
 
   const resetIntake = async () => {
     if (!user?.id) return;

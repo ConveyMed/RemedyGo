@@ -259,7 +259,10 @@ export const DeleteAccount = () => {
       await signOut();
     } catch (err) {
       console.error('Delete account error:', err);
-      setError('Failed to delete account. Please try again or contact support.');
+      // 42501 = refused by the server (the app developer account), show why
+      setError(err?.code === '42501' && err.message
+        ? err.message
+        : 'Failed to delete account. Please try again or contact support.');
       setLoading(false);
     }
   };
